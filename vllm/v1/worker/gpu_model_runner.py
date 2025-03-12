@@ -1116,6 +1116,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             spec_token_ids = self.generate_draft_token_ids(
                 valid_sampled_token_ids, sampling_metadata)
 
+        spec_decoding_stats = None
+        if self.rejection_sampler.stats is not None:
+            spec_decoding_stats = self.rejection_sampler.stats.take()
+
         return ModelRunnerOutput(
             req_ids=self.input_batch.req_ids,
             req_id_to_index=self.input_batch.req_id_to_index,
@@ -1123,6 +1127,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             spec_token_ids=spec_token_ids,
             logprobs=logprobs_lists,
             prompt_logprobs_dict=prompt_logprobs_dict,
+            spec_decoding_stats=spec_decoding_stats,
         )
 
     def generate_draft_token_ids(

@@ -95,6 +95,10 @@ def test_perfect_match(rejection_sampler):
                             device=logits.device)
     assert torch.equal(output, expected)
 
+    assert rejection_sampler.stats.num_draft_tokens == 3
+    assert rejection_sampler.stats.num_accepted_tokens == 3
+    assert rejection_sampler.stats.num_emitted_tokens == 4
+
 
 def test_early_mismatch(rejection_sampler):
     """Test when there's an early mismatch in tokens"""
@@ -122,6 +126,10 @@ def test_early_mismatch(rejection_sampler):
     )
     assert torch.equal(output, expected)
 
+    assert rejection_sampler.stats.num_draft_tokens == 3
+    assert rejection_sampler.stats.num_accepted_tokens == 1
+    assert rejection_sampler.stats.num_emitted_tokens == 2
+
 
 def test_multiple_sequences(rejection_sampler):
     """Test handling multiple sequences of speculated tokens"""
@@ -148,6 +156,10 @@ def test_multiple_sequences(rejection_sampler):
                             device=logits.device)
     assert torch.equal(output, expected)
 
+    assert rejection_sampler.stats.num_draft_tokens == 3
+    assert rejection_sampler.stats.num_accepted_tokens == 3
+    assert rejection_sampler.stats.num_emitted_tokens == 5
+
 
 def test_single_token_sequence(rejection_sampler):
     """Test handling sequences with single token"""
@@ -171,6 +183,10 @@ def test_single_token_sequence(rejection_sampler):
     expected = torch.tensor([[1, 2]], dtype=torch.int, device=logits.device)
     assert torch.equal(output, expected)
 
+    assert rejection_sampler.stats.num_draft_tokens == 1
+    assert rejection_sampler.stats.num_accepted_tokens == 1
+    assert rejection_sampler.stats.num_emitted_tokens == 2
+
 
 def test_empty_sequence(rejection_sampler):
     """Test handling empty sequence of speculated tokens"""
@@ -193,6 +209,10 @@ def test_empty_sequence(rejection_sampler):
     )
     expected = torch.tensor([[5]], dtype=torch.int, device=logits.device)
     assert torch.equal(output, expected)
+
+    assert rejection_sampler.stats.num_draft_tokens == 0
+    assert rejection_sampler.stats.num_accepted_tokens == 0
+    assert rejection_sampler.stats.num_emitted_tokens == 1
 
 
 def test_multiple_mismatches(rejection_sampler):
@@ -223,17 +243,24 @@ def test_multiple_mismatches(rejection_sampler):
     )
     assert torch.equal(output, expected)
 
+    assert rejection_sampler.stats.num_draft_tokens == 6
+    assert rejection_sampler.stats.num_accepted_tokens == 3
+    assert rejection_sampler.stats.num_emitted_tokens == 5
+
 
 @pytest.mark.parametrize(
-    "spec_tokens,output_tokens,expected",
+    "spec_tokens,output_tokens,expected,expected_stats",
     [
-        ([[1, 2]], [[1, 2, 3]], [[1, 2, 3]]),  # Perfect match with bonus
-        ([[1]], [[2, 3]], [[2, PLACEHOLDER_TOKEN_ID]]),  # First mismatch
-        ([[1, 2], [3, 4]], [[1, 5, 6], [3, 4, 7]],
-         [[1, 5, PLACEHOLDER_TOKEN_ID], [3, 4, 7]]),  # Mixed matches
+        ([[1, 2]], [[1, 2, 3]], [[1, 2, 3]],
+         (2, 2, 3)),  # Perfect match with bonus
+        ([[1]], [[2, 3]], [[2, PLACEHOLDER_TOKEN_ID]],
+         (1, 0, 1)),  # First mismatch
+        ([[1, 2], [3, 4]], [[1, 5, 6], [3, 4, 7]
+                            ], [[1, 5, PLACEHOLDER_TOKEN_ID], [3, 4, 7]],
+         (4, 3, 5)),  # Mixed matches
     ])
 def test_parametrized_cases(rejection_sampler, spec_tokens, output_tokens,
-                            expected):
+                            expected, expected_stats):
     """Parametrized test for various matching scenarios"""
     metadata = create_sampling_metadata(all_greedy=True)
     logits = create_logits_tensor(output_tokens)
@@ -253,6 +280,10 @@ def test_parametrized_cases(rejection_sampler, spec_tokens, output_tokens,
                                    dtype=torch.int,
                                    device=logits.device)
     assert torch.equal(output, expected_tensor)
+
+    assert rejection_sampler.stats.num_draft_tokens == expected_stats[0]
+    assert rejection_sampler.stats.num_accepted_tokens == expected_stats[1]
+    assert rejection_sampler.stats.num_emitted_tokens == expected_stats[2]
 
 
 ########################### Tests for Random Sampling ###################
@@ -313,6 +344,12 @@ def test_deterministic_when_seeded(
         )
 
         results.append(rep_result)
+
+        stats = rejection_sampler.stats.take()
+        assert stats.num_draft_tokens == num_tokens
+        assert stats.num_emitted_tokens >= batch_size
+        assert (stats.num_emitted_tokens -
+                batch_size) == stats.num_accepted_tokens
 
     for i in range(batch_size):
         if seeded_mask[i]:

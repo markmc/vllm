@@ -5,6 +5,8 @@ from typing import NamedTuple, Optional
 
 import torch
 
+from vllm.v1.spec_decode.metrics import SpecDecodingStats
+
 
 class LogprobsLists(NamedTuple):
 
@@ -50,6 +52,8 @@ class SamplerOutput:
     sampled_token_ids: torch.Tensor
     logprobs_tensors: Optional[LogprobsTensors]
 
+    spec_decoding_stats: Optional[SpecDecodingStats] = None
+
 
 # ModelRunnerOutput is serialized and sent to the scheduler process.
 # This is expensive for torch.Tensor so prefer to use list instead.
@@ -81,6 +85,8 @@ class ModelRunnerOutput:
     # [prompt_len]
     prompt_logprobs_dict: dict[str, Optional[LogprobsTensors]]
 
+    spec_decoding_stats: Optional[SpecDecodingStats] = None
+
 
 EMPTY_MODEL_RUNNER_OUTPUT = ModelRunnerOutput(
     req_ids=[],
@@ -89,4 +95,5 @@ EMPTY_MODEL_RUNNER_OUTPUT = ModelRunnerOutput(
     spec_token_ids=None,
     logprobs=None,
     prompt_logprobs_dict={},
+    spec_decoding_stats=None,
 )

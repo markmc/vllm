@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
+
 from typing import Optional
 
 import torch
@@ -10,6 +11,7 @@ from vllm.logger import init_logger
 from vllm.v1.sample.metadata import SamplingMetadata
 from vllm.v1.sample.ops.utils import compiled_softmax
 from vllm.v1.spec_decode.metadata import SpecDecodeMetadata
+from vllm.v1.spec_decode.metrics import SpecDecodingStats
 
 logger = init_logger(__name__)
 
@@ -42,6 +44,11 @@ class RejectionSampler(nn.Module):
         Tokens are finally generated with the rejection sampler.
         output tokens = accepted tokens + recovered tokens + bonus tokens
     """
+
+    def __init__(self, log_stats: bool = True):
+        super().__init__()
+        # FIXME: hook up --disable-log-stats config
+        self.stats = SpecDecodingStats() if log_stats else None
 
     def forward(
         self,
@@ -89,16 +96,23 @@ class RejectionSampler(nn.Module):
             sampling_metadata,
         )
 
-        output_token_ids = rejection_sample(
-            metadata.draft_token_ids,
-            metadata.num_draft_tokens,
-            metadata.max_spec_len,
-            metadata.cu_num_draft_tokens,
-            draft_probs,
-            target_probs,
-            bonus_token_ids,
-            sampling_metadata,
-        )
+        output_token_ids, num_accepted_tokens, num_emitted_tokens = \
+            rejection_sample(
+                metadata.draft_token_ids,
+                metadata.num_draft_tokens,
+                metadata.max_spec_len,
+                metadata.cu_num_draft_tokens,
+                draft_probs,
+                target_probs,
+                bonus_token_ids,
+                sampling_metadata,
+            )
+
+        if self.stats is not None:
+            self.stats.num_draft_tokens += metadata.draft_token_ids.shape[0]
+            self.stats.num_accepted_tokens += num_accepted_tokens.sum().item()
+            self.stats.num_emitted_tokens += num_emitted_tokens.sum().item()
+
         return output_token_ids
 
     @staticmethod
@@ -156,6 +170,10 @@ def rejection_sample(
     )
     output_token_ids.fill_(PLACEHOLDER_TOKEN_ID)
 
+    # FIXME: skip if log_stats is False
+    num_accepted_tokens = torch.empty_like(cu_num_draft_tokens)
+    num_emitted_tokens = torch.empty_like(cu_num_draft_tokens)
+
     if sampling_metadata.all_greedy:
         is_greedy = None
     else:
@@ -165,6 +183,8 @@ def rejection_sample(
         target_argmax = target_probs.argmax(dim=-1)
         rejection_greedy_sample_kernel[(batch_size, )](
             output_token_ids,
+            num_accepted_tokens,
+            num_emitted_tokens,
             cu_num_draft_tokens,
             draft_token_ids,
             target_argmax,
@@ -174,7 +194,7 @@ def rejection_sample(
             num_warps=1,
         )
         if sampling_metadata.all_greedy:
-            return output_token_ids
+            return output_token_ids, num_accepted_tokens, num_emitted_tokens
 
     # Generate uniform probabilities for rejection sampling.
     # [num_tokens]
@@ -201,6 +221,8 @@ def rejection_sample(
     # Rejection sampling for random sampling requests.
     rejection_random_sample_kernel[(batch_size, )](
         output_token_ids,
+        num_accepted_tokens,
+        num_emitted_tokens,
         cu_num_draft_tokens,
         draft_token_ids,
         draft_probs,
@@ -214,7 +236,7 @@ def rejection_sample(
         IS_NGRAM=draft_probs is None,
         num_warps=1,
     )
-    return output_token_ids
+    return output_token_ids, num_accepted_tokens, num_emitted_tokens
 
 
 def compute_probs(
@@ -362,6 +384,8 @@ def sample_recovered_tokens(
 @triton.jit(do_not_specialize=["max_spec_len"])
 def rejection_greedy_sample_kernel(
     output_token_ids_ptr,  # [batch_size, max_spec_len + 1]
+    num_accepted_tokens_ptr,  # [batch_size]
+    num_emitted_tokens_ptr,  # [batch_size]
     cu_num_draft_tokens_ptr,  # [batch_size]
     draft_token_ids_ptr,  # [num_tokens]
     target_argmax_ptr,  # [num_tokens]
@@ -387,6 +411,8 @@ def rejection_greedy_sample_kernel(
     end_idx = tl.load(cu_num_draft_tokens_ptr + req_idx)
     num_draft_tokens = end_idx - start_idx
 
+    num_accepted_tokens, num_emitted_tokens = 0, 0
+
     rejected = False
     for pos in range(num_draft_tokens):
         if not rejected:
@@ -394,9 +420,12 @@ def rejection_greedy_sample_kernel(
             target_argmax_id = tl.load(target_argmax_ptr + start_idx + pos)
             tl.store(output_token_ids_ptr + req_idx * (max_spec_len + 1) + pos,
                      target_argmax_id)
+            num_emitted_tokens += 1
             if draft_token_id != target_argmax_id:
                 # Reject.
                 rejected = True
+            else:
+                num_accepted_tokens += 1
 
     if not rejected:
         # If all tokens are accepted, append the bonus token.
@@ -404,12 +433,18 @@ def rejection_greedy_sample_kernel(
         tl.store(
             output_token_ids_ptr + req_idx * (max_spec_len + 1) +
             num_draft_tokens, bonus_token_id)
+        num_emitted_tokens += 1
+
+    tl.store(num_accepted_tokens_ptr + req_idx, num_accepted_tokens)
+    tl.store(num_emitted_tokens_ptr + req_idx, num_emitted_tokens)
 
 
 # NOTE(woosuk): Avoid specialization to prevent unnecessary recompilation.
 @triton.jit(do_not_specialize=["max_spec_len"])
 def rejection_random_sample_kernel(
     output_token_ids_ptr,  # [batch_size, max_spec_len + 1]
+    num_accepted_tokens_ptr,  # [batch_size]
+    num_emitted_tokens_ptr,  # [batch_size]
     cu_num_draft_tokens_ptr,  # [batch_size]
     draft_token_ids_ptr,  # [num_tokens]
     draft_probs_ptr,  # [num_tokens, vocab_size] or None
@@ -435,6 +470,8 @@ def rejection_random_sample_kernel(
     end_idx = tl.load(cu_num_draft_tokens_ptr + req_idx)
     num_draft_tokens = end_idx - start_idx
 
+    num_accepted_tokens, num_emitted_tokens = 0, 0
+
     rejected = False
     for pos in range(num_draft_tokens):
         if not rejected:
@@ -454,12 +491,14 @@ def rejection_random_sample_kernel(
             if draft_prob > 0 and target_prob / draft_prob >= uniform_prob:
                 # Accept.
                 token_id = draft_token_id
+                num_accepted_tokens += 1
             else:
                 # Reject. Use recovered token.
                 rejected = True
                 token_id = tl.load(recovered_token_ids_ptr + start_idx + pos)
             tl.store(output_token_ids_ptr + req_idx * (max_spec_len + 1) + pos,
                      token_id)
+            num_emitted_tokens += 1
 
     if not rejected:
         # If all tokens are accepted, append the bonus token.
@@ -467,6 +506,10 @@ def rejection_random_sample_kernel(
         tl.store(
             output_token_ids_ptr + req_idx * (max_spec_len + 1) +
             num_draft_tokens, bonus_token_id)
+        num_emitted_tokens += 1
+
+    tl.store(num_accepted_tokens_ptr + req_idx, num_accepted_tokens)
+    tl.store(num_emitted_tokens_ptr + req_idx, num_emitted_tokens)
 
 
 # NOTE(woosuk): Avoid specialization to prevent unnecessary recompilation.
