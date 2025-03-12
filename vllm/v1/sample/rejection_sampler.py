@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
@@ -9,6 +11,7 @@ from vllm.logger import init_logger
 from vllm.platforms import current_platform
 from vllm.v1.outputs import SamplerOutput
 from vllm.v1.sample.metadata import SamplingMetadata
+from vllm.v1.spec_decoding.metrics import SpecDecodingStats
 
 try:
     import flashinfer.sampling as fs
@@ -22,8 +25,9 @@ INVALID_TOKEN_ID = -1
 
 class RejectionSampler(nn.Module):
 
-    def __init__(self):
+    def __init__(self, log_stats: bool = True):
         super().__init__()
+        self.log_stats = log_stats  # FIXME: hook up --disable-log-stats config
         if current_platform.is_cuda:
             if is_flashinfer_available:
                 if envs.VLLM_USE_FLASHINFER_SAMPLER is not False:
@@ -52,6 +56,8 @@ class RejectionSampler(nn.Module):
                 self.forward_method = self.forward_native
         else:
             self.forward_method = self.forward_native
+
+        self.fi = self.forward_method == self.flashinfer_sample
 
     def forward(self, draft_token_ids: list[list[int]],
                 target_probs: torch.Tensor,
@@ -106,14 +112,27 @@ class RejectionSampler(nn.Module):
                 "Currently, only greedy sampling is supported by "
                 "rejection sampler.")
 
-        sampled_token_ids, _, _ = fs.chain_speculative_sampling(
-            draft_probs,
-            draft_token_ids_tensor,
-            uniform_samples,
-            target_probs,
-        )
+        sampled_token_ids, accepted_token_num, emitted_token_num = \
+            fs.chain_speculative_sampling(
+                draft_probs,
+                draft_token_ids_tensor,
+                uniform_samples,
+                target_probs,
+            )
+
+        stats: Optional[SpecDecodingStats] = None
+        if self.log_stats:
+            batch_size, k, _ = draft_probs.shape
+            num_accepted = accepted_token_num.sum().cpu().item()
+            # emitted_token_num from flashinfer does not include bonus token
+            num_emitted = emitted_token_num.sum().cpu().item() + batch_size
+            stats = SpecDecodingStats(num_draft_tokens=batch_size * k,
+                                      num_accepted_tokens=num_accepted,
+                                      num_emitted_tokens=num_emitted)
+
         return SamplerOutput(sampled_token_ids=sampled_token_ids,
-                             logprobs_tensors=None)
+                             logprobs_tensors=None,
+                             spec_decoding_stats=stats)
 
     # TODO: The following method can be optimized for better performance.
     def forward_native(
@@ -163,8 +182,18 @@ class RejectionSampler(nn.Module):
         generate_mask[rows_with_zero, first_zero_idx[rows_with_zero]] = 1
 
         output_token_ids[~generate_mask] = INVALID_TOKEN_ID
+
+        stats: Optional[SpecDecodingStats] = None
+        if self.log_stats:
+            batch_size, k = draft_token_ids_tensor.shape
+            stats = SpecDecodingStats(
+                num_draft_tokens=batch_size * k,
+                num_accepted_tokens=accept_mask.sum().item(),
+                num_emitted_tokens=generate_mask.sum().item())
+
         return SamplerOutput(sampled_token_ids=output_token_ids,
-                             logprobs_tensors=None)
+                             logprobs_tensors=None,
+                             spec_decoding_stats=stats)
 
 
 def _create_greedy_token_probs(

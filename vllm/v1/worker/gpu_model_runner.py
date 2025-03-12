@@ -1078,6 +1078,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             spec_token_ids=spec_token_ids,
             logprobs=logprobs_lists,
             prompt_logprobs_dict=prompt_logprobs_dict,
+            spec_decoding_stats=sampler_output.rejection_sampler_stats,
         )
 
     def generate_draft_token_ids(

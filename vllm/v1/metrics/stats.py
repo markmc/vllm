@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from vllm.v1.engine import EngineCoreEvent, EngineCoreOutput, FinishReason
     from vllm.v1.output_processor import RequestState
+    from vllm.v1.spec_decoding.metrics import SpecDecodingStats
 
 
 @dataclass
@@ -34,6 +35,8 @@ class SchedulerStats:
 
     prefix_cache_stats: PrefixCacheStats = field(
         default_factory=PrefixCacheStats)
+
+    spec_decoding_stats: Optional[SpecDecodingStats] = None
 
 
 @dataclass

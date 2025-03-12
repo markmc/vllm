@@ -60,6 +60,10 @@ def test_perfect_match(sampler):
                             device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
 
+    assert sampler.stats.num_draft_tokens == 3
+    assert sampler.stats.num_accepted_tokens == 3
+    assert sampler.stats.num_emitted_tokens == 4
+
 
 def test_early_mismatch(sampler):
     """Test when there's an early mismatch in tokens"""
@@ -74,6 +78,11 @@ def test_early_mismatch(sampler):
                             dtype=torch.int,
                             device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
+
+    assert sampler.stats.num_draft_tokens == 3
+    # FIXME: flashinfer says position 1 and 3 are accepted
+    assert sampler.stats.num_accepted_tokens == 2 if sampler.fi else 1
+    assert sampler.stats.num_emitted_tokens == 2
 
 
 def test_multiple_sequences(sampler):
@@ -90,6 +99,10 @@ def test_multiple_sequences(sampler):
                             device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
 
+    assert sampler.stats.num_draft_tokens == 4
+    assert sampler.stats.num_accepted_tokens == 3
+    assert sampler.stats.num_emitted_tokens == 5
+
 
 def test_single_token_sequence(sampler):
     """Test handling sequences with single token"""
@@ -103,6 +116,10 @@ def test_single_token_sequence(sampler):
     expected = torch.tensor([[1, 2]], dtype=torch.int, device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
 
+    assert sampler.stats.num_draft_tokens == 1
+    assert sampler.stats.num_accepted_tokens == 1
+    assert sampler.stats.num_emitted_tokens == 2
+
 
 def test_empty_sequence(sampler):
     """Test handling empty sequence of speculated tokens"""
@@ -115,6 +132,10 @@ def test_empty_sequence(sampler):
     output = sampler(spec_tokens, logits, metadata)
     expected = torch.tensor([[5]], dtype=torch.int, device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
+
+    assert sampler.stats.num_draft_tokens == 0
+    assert sampler.stats.num_accepted_tokens == 0
+    assert sampler.stats.num_emitted_tokens == 1
 
 
 def test_multiple_mismatches(sampler):
@@ -132,16 +153,24 @@ def test_multiple_mismatches(sampler):
                             device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
 
+    assert sampler.stats.num_draft_tokens == 6
+    # FIXME: flashinfer says token ID 6 is accepted
+    assert sampler.stats.num_accepted_tokens == 4 if sampler.fi else 3
+    assert sampler.stats.num_emitted_tokens == 5
+
 
 @pytest.mark.parametrize(
-    "spec_tokens,output_tokens,expected",
+    "spec_tokens,output_tokens,expected,expected_stats",
     [
-        ([[1, 2]], [1, 2, 3], [[1, 2, 3]]),  # Perfect match with bonus
-        ([[1]], [2, 3], [[2, INVALID_TOKEN_ID]]),  # First mismatch
+        ([[1, 2]], [1, 2, 3], [[1, 2, 3]],
+         (2, 2, 3)),  # Perfect match with bonus
+        ([[1]], [2, 3], [[2, INVALID_TOKEN_ID]], (1, 0, 1)),  # First mismatch
         ([[1, 2], [3, 4]], [1, 5, 6, 3, 4, 7], [[1, 5, INVALID_TOKEN_ID],
-                                                [3, 4, 7]]),  # Mixed matches
+                                                [3, 4, 7]],
+         (4, 3, 5)),  # Mixed matches
     ])
-def test_parametrized_cases(sampler, spec_tokens, output_tokens, expected):
+def test_parametrized_cases(sampler, spec_tokens, output_tokens, expected,
+                            expected_stats):
     """Parametrized test for various matching scenarios"""
     metadata = create_sampling_metadata(spec_tokens)
     logits = create_logits_tensor(output_tokens)
@@ -151,6 +180,10 @@ def test_parametrized_cases(sampler, spec_tokens, output_tokens, expected):
                                    dtype=torch.int,
                                    device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected_tensor)
+
+    assert sampler.stats.num_draft_tokens == expected_stats[0]
+    assert sampler.stats.num_accepted_tokens == expected_stats[1]
+    assert sampler.stats.num_emitted_tokens == expected_stats[2]
 
 
 def test_logits_shape_handling(sampler):
@@ -166,3 +199,7 @@ def test_logits_shape_handling(sampler):
     expected = torch.tensor([[1, 2, 3]], dtype=torch.int, device=logits.device)
     assert torch.equal(output.sampled_token_ids, expected)
     assert logits.shape[-1] == vocab_size
+
+    assert sampler.stats.num_draft_tokens == 2
+    assert sampler.stats.num_accepted_tokens == 2
+    assert sampler.stats.num_emitted_tokens == 3
