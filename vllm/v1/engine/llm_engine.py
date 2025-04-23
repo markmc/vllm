@@ -10,7 +10,6 @@ import vllm.envs as envs
 from vllm.config import ParallelConfig, VllmConfig
 from vllm.distributed import stateless_destroy_torch_distributed_process_group
 from vllm.engine.arg_utils import EngineArgs
-from vllm.engine.metrics_types import StatLoggerBase
 from vllm.inputs import PromptType
 from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
@@ -28,6 +27,7 @@ from vllm.v1.engine.output_processor import OutputProcessor
 from vllm.v1.engine.parallel_sampling import ParentRequest
 from vllm.v1.engine.processor import Processor
 from vllm.v1.executor.abstract import Executor
+from vllm.v1.metrics.loggers import StatLoggerFactory
 
 logger = init_logger(__name__)
 
@@ -44,7 +44,7 @@ class LLMEngine:
         executor_class: type[Executor],
         log_stats: bool,
         usage_context: UsageContext = UsageContext.ENGINE_CONTEXT,
-        stat_loggers: Optional[list[type[StatLoggerBase]]] = None,
+        stat_loggers: Optional[list[StatLoggerFactory]] = None,
         mm_registry: MultiModalRegistry = MULTIMODAL_REGISTRY,
         use_cached_outputs: bool = False,
         multiprocess_mode: bool = False,
@@ -109,7 +109,7 @@ class LLMEngine:
         cls,
         vllm_config: VllmConfig,
         usage_context: UsageContext = UsageContext.ENGINE_CONTEXT,
-        stat_loggers: Optional[list[type[StatLoggerBase]]] = None,
+        stat_loggers: Optional[list[StatLoggerFactory]] = None,
         disable_log_stats: bool = False,
     ) -> "LLMEngine":
         return cls(vllm_config=vllm_config,
@@ -124,7 +124,7 @@ class LLMEngine:
         cls,
         engine_args: EngineArgs,
         usage_context: UsageContext = UsageContext.ENGINE_CONTEXT,
-        stat_loggers: Optional[list[type[StatLoggerBase]]] = None,
+        stat_loggers: Optional[list[StatLoggerFactory]] = None,
         enable_multiprocessing: bool = False,
     ) -> "LLMEngine":
         """Creates an LLM engine from the engine arguments."""
