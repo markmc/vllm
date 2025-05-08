@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from vllm.model_executor.layers.quantization.base_config import (
         QuantizationConfig)
     from vllm.model_executor.model_loader import BaseModelLoader
+    from vllm.v1.spec_decode.config import SpeculatorConfig
 
     ConfigType = type[DataclassInstance]
 else:
@@ -2298,6 +2299,8 @@ class SpeculativeConfig:
     draft_parallel_config: ParallelConfig = field(default=None,
                                                   init=True)  # type: ignore
     """The parallel configuration for the draft model initialized internal."""
+    speculator_config: Optional["SpeculatorConfig"] = None
+    """Speculator configuration from HF config."""
 
     def compute_hash(self) -> str:
         """
@@ -2429,8 +2432,16 @@ class SpeculativeConfig:
                     hf_overrides=SpeculativeConfig.hf_config_override,
                 )
 
+                if hasattr(self.draft_model_config.hf_config,
+                           "speculator_config"):
+                    from vllm.v1.spec_decode.config import SpeculatorConfig
+                    self.speculator_config = SpeculatorConfig.from_dict(
+                        self.draft_model_config.hf_config.speculator_config)
+
                 # Automatically detect the method
-                if self.method in ('eagle', 'eagle3'):
+                if self.speculator_config is not None:
+                    self.method = self.speculator_config.algorithm
+                elif self.method in ('eagle', 'eagle3'):
                     pass
                 elif "eagle-" in self.draft_model_config.model.lower() or \
                         "eagle3-" in self.draft_model_config.model.lower():
