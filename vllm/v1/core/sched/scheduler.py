@@ -1022,6 +1022,9 @@ class Scheduler(SchedulerInterface):
             if request is None:
                 # Invalid request ID.
                 continue
+            if request.is_finished():
+                # Already finished, delayed freed
+                continue
 
             valid_requests.append(request)
             if request.status == RequestStatus.RUNNING:
