@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import itertools
 import time
+import traceback
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any, Optional, Union
@@ -1024,6 +1025,9 @@ class Scheduler(SchedulerInterface):
                 continue
             if request.is_finished():
                 # Already finished, delayed freed
+                logger.debug("Request %s already finished. Backtrace:\n%s",
+                             request.request_id,
+                             "".join(traceback.format_stack()))
                 continue
 
             valid_requests.append(request)
