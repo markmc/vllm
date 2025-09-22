@@ -1326,22 +1326,32 @@ class NixlConnectorWorker:
 
     def shutdown(self):
         """Shutdown the connector worker."""
-        if executor := getattr(self, "_handshake_initiation_executor", None):
-            executor.shutdown(wait=False)
-        if listener_t := getattr(self, "_nixl_handshake_listener_t", None):
-            listener_t.join(timeout=0)
+        self._handshake_initiation_executor.shutdown(wait=False)
+        if self._nixl_handshake_listener_t is not None:
+            self._nixl_handshake_listener_t.join(timeout=0)
+            self._nixl_handshake_listener_t = None
+
         for handles in self._recving_transfers.values():
             for handle, _ in handles:
                 self.nixl_wrapper.release_xfer_handle(handle)
+        self._recving_transfers.clear()
+
         if self.src_xfer_side_handle:
             self.nixl_wrapper.release_dlist_handle(self.src_xfer_side_handle)
+            self.src_xfer_side_handle = 0
+
         for dst_xfer_side_handle in self.dst_xfer_side_handles.values():
             self.nixl_wrapper.release_dlist_handle(dst_xfer_side_handle)
+        self.dst_xfer_side_handles.clear()
+
         for remote_agents in self._remote_agents.values():
             for agent_name in remote_agents.values():
                 self.nixl_wrapper.remove_remote_agent(agent_name)
+        self._remote_agents.clear()
+
         for desc in self._registered_descs:
             self.nixl_wrapper.deregister_memory(desc)
+        self._registered_descs.clear()
 
 
 @contextlib.contextmanager
