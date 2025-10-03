@@ -419,7 +419,7 @@ class NixlConnectorScheduler:
 
         # Blocks sent - remove expiry timeout
         for notif in (connector_output.finished_sending or ()):
-            req_id, tp_ratio = notif.decode("utf-8").rsplit(":", 1)
+            req_id, tp_ratio = notif.rsplit(":", 1)
             # Sent notifications received after we already timed out
             if req_id not in self._reqs_need_send:
                 logger.debug(
@@ -1174,7 +1174,7 @@ class NixlConnectorWorker:
         for notifs in self.nixl_wrapper.get_new_notifs().values():
             for notif in notifs:
                 # Note - this is in req_id:tp_ratio format
-                notified_req_ids.add(notif)
+                notified_req_ids.add(notif.decode("utf-8"))
         return notified_req_ids
 
     def _pop_done_transfers(
