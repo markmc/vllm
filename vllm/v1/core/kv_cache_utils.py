@@ -12,7 +12,9 @@ from typing import Any, NewType, TypeAlias
 from vllm import envs
 from vllm.config import VllmConfig
 from vllm.logger import init_logger
-from vllm.utils import GiB_bytes, cdiv, sha256_cbor
+from vllm.utils.hashing import sha256_cbor
+from vllm.utils.math_utils import cdiv
+from vllm.utils.mem_constants import GiB_bytes
 from vllm.v1.kv_cache_interface import (
     ChunkedLocalAttentionSpec,
     FullAttentionSpec,
@@ -375,7 +377,7 @@ def need_extra_keys(request: Request) -> bool:
     """
 
     # Multimodal requests need to include the MM hash.
-    # LoRA requests need to include the LoRA ID.
+    # LoRA requests need to include the LoRA name.
     # Request with provided cache salt need to include the salt.
     return (
         bool(request.mm_features)
@@ -488,7 +490,8 @@ def generate_block_hash_extra_keys(
     request: Request, start_token_idx: int, end_token_idx: int, start_mm_idx: int
 ) -> tuple[tuple[Any, ...] | None, int]:
     """Generate extra keys for the block hash. The extra keys can come from
-    the multi-modal inputs and request specific metadata (e.g., LoRA ID).
+    the multi-modal inputs, request specific metadata (e.g., LoRA names), and
+    data from prompt embeddings.
 
     Args:
         request: The request object.
@@ -1226,7 +1229,7 @@ def _report_kv_cache_config(
             vllm_config.parallel_config.decode_context_parallel_size,
         )
     num_tokens_str = f"{num_tokens:,}"
-    logger.info("GPU KV cache size: %s tokens", num_tokens_str)
+    logger.info_once("GPU KV cache size: %s tokens", num_tokens_str, scope="local")
     max_model_len_str = f"{vllm_config.model_config.max_model_len:,}"
     max_concurrency = get_max_concurrency_for_kv_cache_config(
         vllm_config, kv_cache_config
