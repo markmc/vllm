@@ -105,66 +105,7 @@ vllm:eplb_rebalancing == 1
 
 ---
 
-### 3. **No Per-Expert Replication Visibility** 🔶 MEDIUM
-
-**Problem**: Load balancer can't understand instance capacity by expert usage patterns.
-
-**Missing Metrics**:
-```python
-# Current replication factor per expert
-vllm:expert_replica_count{model, layer, expert_id}  # Gauge
-
-# Aggregated view: total replicas across all experts
-vllm:eplb_total_replicas{model}  # Gauge
-```
-
-**Why Medium Priority**:
-- Helps understand instance "fullness" (limited replica budget)
-- High total replicas → instance is saturated
-- Could influence routing of certain model requests
-
-**Use Case**:
-```promql
-# Instance approaching replica capacity limit
-sum(vllm:expert_replica_count) by (instance) > threshold
-```
-
-**Note**: This adds per-expert cardinality. For DeepSeek-R1 (256 experts), this is manageable but should be **optional** via flag `--enable-expert-metrics`.
-
----
-
-### 4. **No Expert Load Distribution** 🔶 MEDIUM-LOW
-
-**Problem**: Can't identify hot experts across instances (for global optimization).
-
-**Missing Metrics**:
-```python
-# Tokens processed by each expert (aggregated by layer)
-vllm:expert_tokens_total{model, layer, expert_id}  # Counter
-```
-
-**Why Medium-Low**:
-- Useful for multi-instance analysis (which experts are hot globally?)
-- Load balancer could route requests likely to hit hot experts to underutilized instances
-- Requires workload-aware routing (advanced)
-
-**Cardinality Concerns**:
-- **High cardinality**: For DeepSeek-R1, this is 256 experts × 60 layers = 15,360 time series per instance
-- **Mitigation**: Only enable with `--enable-expert-level-metrics` flag (default: OFF)
-- **Alternative**: Aggregate to layer level only: `vllm:expert_tokens_by_layer_total{model, layer}`
-
-**Use Case** (advanced):
-```promql
-# Identify globally hot experts across fleet
-topk(10, sum(rate(vllm:expert_tokens_total[5m])) by (expert_id))
-
-# Route traffic away from instances with hot expert replicas
-vllm:expert_tokens_total{expert_id="42"} / avg(...) > 2
-```
-
----
-
-### 5. **Existing Metrics Are Sufficient** ✅
+### 3. **Existing Metrics Are Sufficient** ✅
 
 **Request-level metrics already exposed** (for load balancer):
 ```python
@@ -192,9 +133,26 @@ AND (vllm:eplb_max_tokens_per_rank / vllm:eplb_avg_tokens_per_rank) > 2.0
 
 ---
 
-## Minimal Implementation Plan (3 Phases)
+## High-Cardinality Metrics Considered but Deferred
 
-### Phase 1: Instance Health Signals (Week 1) - **MUST HAVE**
+**Per-expert metrics** were evaluated but **not recommended** for initial implementation due to extreme cardinality:
+
+- `vllm:expert_replica_count{model, layer, expert_id}` - Replication factor per expert
+- `vllm:expert_tokens_total{model, layer, expert_id}` - Token counts per expert
+
+**Cardinality impact**: DeepSeek-R1 has 256 experts × 60 layers = **15,360 time series per instance**. With 100 replicas, this would create **1.5M time series** just for expert-level metrics.
+
+**Decision**: Defer until external project demonstrates concrete use case showing significant performance improvement from workload-aware routing based on expert-level metrics. Instance-level metrics (avg/max tokens per rank) provide sufficient signal for load balancing without cardinality explosion.
+
+**Aggregated alternatives** (if needed later):
+- `vllm:eplb_total_replicas{model}` - Total replica count (single gauge, no per-expert breakdown)
+- `vllm:expert_tokens_by_layer_total{model, layer}` - Aggregate to layer level only (60 time series vs 15K)
+
+---
+
+## Implementation Plan
+
+### Phase 1: Instance Health Signals - **MUST HAVE**
 
 **Add to `vllm/v1/metrics/stats.py`**:
 ```python
@@ -215,11 +173,11 @@ eplb_stats: EPLBStats | None = None
 
 **Expose to Prometheus** (in `PrometheusStatLogger`):
 ```python
-# Raw measurements (primary metrics)
-vllm:eplb_avg_tokens_per_rank
-vllm:eplb_max_tokens_per_rank
-vllm:eplb_rebalance_events_total
-vllm:eplb_rebalancing  # 0 or 1
+# Raw measurements (all metrics for Phase 1)
+vllm:eplb_avg_tokens_per_rank        # Gauge
+vllm:eplb_max_tokens_per_rank        # Gauge
+vllm:eplb_rebalance_events_total     # Counter
+vllm:eplb_rebalancing                # Gauge: 0 or 1
 ```
 
 **Load Balancer Usage**:
@@ -249,54 +207,7 @@ if eplb_rebalancing == 1:
 + (vllm:eplb_rebalancing * 10000)
 ```
 
----
-
-### Phase 2: Capacity Signals (Week 2) - **SHOULD HAVE**
-
-**Add to `EPLBStats`**:
-```python
-total_active_replicas: int = 0  # Sum of all expert replicas
-num_unique_experts: int = 0     # Distinct experts with replicas
-```
-
-**Expose to Prometheus**:
-```python
-vllm:eplb_total_replicas{model}
-vllm:eplb_unique_experts{model}
-```
-
-**Optional** (flag: `--enable-expert-metrics`):
-```python
-vllm:expert_replica_count{model, layer, expert_id}
-```
-
-**Load Balancer Usage**:
-```python
-# Avoid routing to instances near capacity
-if eplb_total_replicas > capacity_threshold:
-    weight *= 0.7
-```
-
----
-
-### Phase 3: Expert-Level Metrics (Week 3+) - **NICE TO HAVE**
-
-**Only if `--enable-expert-level-metrics` flag set**:
-```python
-vllm:expert_tokens_total{model, layer, expert_id}
-vllm:expert_load_imbalance{model, layer, expert_id}  # Per-expert skew
-```
-
-**Cardinality Control**:
-- Sampling: only track top-K hottest experts (e.g., top 20)
-- Aggregation: aggregate to layer level instead of per-expert
-- Time-based: only export during high-load periods
-
-**Load Balancer Usage** (advanced):
-```python
-# Route requests to instances with cold experts
-# Requires workload modeling to predict expert usage
-```
+**Implementation complete after Phase 1** - provides all critical signals for intelligent load balancing.
 
 ---
 
@@ -356,17 +267,23 @@ vllm:eplb_max_tokens_per_rank < 5000
 
 ---
 
-## Non-Goals (Out of Scope for MVP)
+## Non-Goals (Out of Scope)
 
-**From original requirements doc** - these are MoE/expert parallelism concepts that don't apply to vLLM's EPLB:
+**Architectural mismatches** (from original requirements doc - assume MoE microservices architecture):
 - ❌ Router queue metrics (vLLM doesn't have separate router component)
 - ❌ Per-replica queue length (EPLB doesn't maintain per-replica queues)
-- ❌ Expert processing duration histograms (too high cardinality, not actionable)
 - ❌ Replica selection counters (routing is internal to worker, not exposed)
+
+**High-cardinality metrics** (deferred pending external demand):
+- ❌ Per-expert replica counts (`expert_replica_count{expert_id}`)
+- ❌ Per-expert token counters (`expert_tokens_total{expert_id}`)
+- ❌ Per-expert processing duration histograms
+
+**Visualization/operations** (do later):
 - ❌ Grafana dashboards (metrics first, visualization later)
 - ❌ Alert rules (wait until metrics are deployed and baselined)
 
-**Why**: These assume a different architecture (separate router/scheduler/worker services). vLLM integrates scheduling into the engine, so the relevant signals are at the instance level, not per-component.
+**Rationale**: vLLM's monolithic architecture means actionable signals are at the **instance level** (avg/max tokens per rank), not per-component or per-expert. High-cardinality metrics create 1.5M+ time series with unclear ROI.
 
 ---
 
@@ -381,40 +298,37 @@ Load balancer can answer:
 
 ---
 
-## Files to Modify (Phase 1 Only)
+## Files to Modify
 
 1. **`vllm/v1/metrics/stats.py`**
-   Add `EPLBStats` dataclass, add field to `SchedulerStats`
+   - Add `EPLBStats` dataclass
+   - Add `eplb_stats: EPLBStats | None` field to `SchedulerStats`
 
 2. **`vllm/distributed/eplb/eplb_state.py`**
-   Return stats from `step()` method
+   - Modify `step()` method to return stats (avg_tokens, max_tokens, rebalance events)
 
 3. **`vllm/v1/core/sched/scheduler.py`**
-   Populate `eplb_stats` in `make_stats()`
+   - Populate `eplb_stats` in `make_stats()` method
 
 4. **`vllm/v1/metrics/loggers.py`**
-   Add EPLB metrics to `PrometheusStatLogger.__init__()`
+   - Add EPLB metrics to `PrometheusStatLogger.__init__()`
+   - Add logging to `LoggingStatLogger`
 
-**Lines of code**: ~150 lines total
+**Estimated effort**: ~150 lines total, ~4 hours for experienced vLLM developer
 
 ---
 
-## Questions for Discussion
+## Open Questions
 
-1. **Cardinality budget**: Are per-expert metrics (Phase 3) worth the cardinality cost for your use case?
-   - DeepSeek-R1: 256 experts × 60 layers = 15K time series per instance
-   - If you have 100 replicas, that's 1.5M time series just for expert metrics
+1. **Rebalancing frequency**: How often does EPLB rebalance in production workloads?
+   - Default is every 3000 steps
+   - Impacts how often `eplb_rebalancing` flag will be 1
 
-2. **Rebalancing frequency**: How often is EPLB rebalancing in your workload?
-   - Default is every 3000 steps - is this too frequent/infrequent?
-   - Impacts how often `eplb_rebalancing` flag would be 1
+2. **Metrics export format**: Does the load balancer scrape Prometheus, or is push-based export needed (e.g., OTLP)?
 
-3. **Load balancer sophistication**: Is your LB doing:
-   - **Simple round-robin** → Only need Phase 1 (avg/max tokens for imbalance)
-   - **Load-aware** → Phase 1 + existing `num_requests_waiting` + absolute token counts
-   - **Workload-aware** → Phase 3 (expert-level metrics) might be useful
-
-4. **Metrics export format**: Does your LB scrape Prometheus, or do you need push-based export (e.g., OTLP)?
+3. **Threshold tuning**: What values constitute "severe imbalance" for routing decisions?
+   - Suggestion: `max/avg > 2.0` (one rank processing 2x average load)
+   - Needs validation against production traffic patterns
 
 ---
 
