@@ -422,7 +422,7 @@ vllm:moe_per_rank_expert_selection_counter{model_name, engine, layer, rank}  # C
 
 #### `sallyom/dbo-eplb-stats` Branch
 
-**Focus**: Comprehensive EPLB, DBO, and throughput metrics with safety features
+**Focus**: Comprehensive EPLB and DBO metrics with safety features
 
 **Metrics proposed**:
 ```python
@@ -439,10 +439,6 @@ vllm:dbo_active{model_name, engine, phase}  # Gauge, phase = prefill|decode
 vllm:dbo_fallout_total{model_name, engine, reason}  # Counter
 vllm:ubatch_token_count{model_name, engine, ubatch_index}  # Histogram
 
-# Throughput metrics
-vllm:prompt_throughput_toks_per_s{model_name, engine}  # Gauge
-vllm:generation_throughput_toks_per_s{model_name, engine}  # Gauge
-
 # Debug per-expert metrics (opt-in with auto-disable)
 vllm:expert_load_per_expert_tokens_DEBUG{model_name, engine, layer, expert_id}  # Gauge
 ```
@@ -457,13 +453,11 @@ vllm:expert_load_per_expert_tokens_DEBUG{model_name, engine, layer, expert_id}  
 **Cardinality**:
 - EPLB metrics: ~180 time series (60 layers × 3 metrics)
 - DBO metrics: ~7 time series (2 active gauges + reasons + ubatch histogram)
-- Throughput: 2 time series
 - Debug per-expert: 15,360 time series when enabled (opt-in only, auto-disables)
 
 **Key differences from Phase 1 proposal**:
 - Per-layer granularity vs instance-level (60x more EPLB metrics, but still low cardinality)
 - Adds DBO metrics (new capability not in other proposals)
-- Adds throughput metrics
 - Includes opt-in debug per-expert metrics with auto-disable safety
 
 ### Recommended Metrics for Final Proposal
@@ -544,10 +538,9 @@ vllm:phy2log{rank, layer, phy_expert_id, log_expert_id}
 - Covers basic load balancer needs
 - **Status**: Proposal, not yet in `origin/main`
 
-**sallyom/dbo-eplb-stats branch**: Comprehensive EPLB + DBO + throughput (13+ metrics, ~190 time series)
+**sallyom/dbo-eplb-stats branch**: Comprehensive EPLB + DBO (11 metrics, ~187 time series)
 - Per-layer EPLB granularity instead of instance-level
 - Adds DBO metrics (new capability)
-- Adds throughput metrics
 - Includes opt-in debug per-expert metrics with auto-disable
 - **Status**: Proposal, not yet in `origin/main`
 
@@ -576,7 +569,6 @@ VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM = False  # Keep default off
 - Instance-level EPLB metrics - **Proposed in epblb-metrics-claude branch**
 - Per-layer EPLB metrics - **Proposed in sallyom/dbo-eplb-stats branch**
 - DBO metrics - **Proposed in sallyom/dbo-eplb-stats branch**
-- Throughput metrics - **Proposed in sallyom/dbo-eplb-stats branch**
 - Per-rank token counts - **Proposed in PR #27105**
 
 **Proposed opt-in configuration** (debugging/profiling):
@@ -611,9 +603,6 @@ This would expose:
 | `dbo_active{phase}` | 2 phases | 2 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
 | `dbo_fallout_total{reason}` | ~3 reasons | 3 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
 | `ubatch_token_count{ubatch_index}` | 2 ubatches | 2 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
-| **Throughput (sallyom/dbo-eplb-stats)** |||||
-| `prompt_throughput_toks_per_s` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
-| `generation_throughput_toks_per_s` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
 | **Per-rank metrics (PR #27105)** |||||
 | `moe_per_rank_expert_selection_counter{layer,rank}` | layers × ranks | 60 × 4 = 240 | PR #27105 | ✅ Low cardinality |
 | **Per-expert metrics (PR #19915/#27105)** |||||
@@ -734,34 +723,6 @@ histogram_quantile(0.5, rate(vllm:ubatch_token_count_bucket{ubatch_index="first"
    ```
    - If P95 is near 0 or 256, batch sizes are hitting the empty ubatch condition
 5. **If `coordination_failure` is high**, indicates DP rank disagreement
-
----
-
-## Throughput Metrics - Proposed in `sallyom/dbo-eplb-stats`
-
-**Status**: Proposed in `sallyom/dbo-eplb-stats` branch (NOT in origin/main)
-
-### Metrics Proposed
-
-| Metric | Type | Description | Labels |
-|--------|------|-------------|--------|
-| `vllm:prompt_throughput_toks_per_s` | Gauge | Prompt throughput in tokens/s | model_name, engine |
-| `vllm:generation_throughput_toks_per_s` | Gauge | Generation throughput in tokens/s | model_name, engine |
-
-**Update Frequency**: Every 10 seconds in `PrometheusStatLogger.record()`
-
-### Use Cases (If Implemented)
-
-```promql
-# Per-engine throughput variance
-stddev(vllm:generation_throughput_toks_per_s) by (model_name)
-
-# Total cluster throughput
-sum(vllm:generation_throughput_toks_per_s) by (model_name)
-
-# Identify slow engines
-vllm:generation_throughput_toks_per_s < 1000
-```
 
 ---
 
