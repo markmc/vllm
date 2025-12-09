@@ -161,6 +161,23 @@ class KVCacheEvictionEvent:
 
 
 @dataclass
+class EPLBStats:
+    """EPLB (Elastic Prefix Load Balancing) statistics."""
+
+    avg_tokens_per_rank: float = 0.0
+    """Average tokens processed per EP rank in this interval."""
+
+    max_tokens_per_rank: int = 0
+    """Maximum tokens processed by any EP rank in this interval."""
+
+    num_rebalance_events: int = 0
+    """Number of rebalancing operations in this interval."""
+
+    is_rebalancing: bool = False
+    """Whether EPLB is currently performing a rebalance operation."""
+
+
+@dataclass
 class SchedulerStats:
     """Stats associated with the scheduler."""
 
@@ -180,6 +197,7 @@ class SchedulerStats:
 
     spec_decoding_stats: SpecDecodingStats | None = None
     kv_connector_stats: dict[str, Any] | None = None
+    eplb_stats: EPLBStats | None = None
 
     waiting_lora_adapters: dict[str, int] = field(default_factory=dict)
     running_lora_adapters: dict[str, int] = field(default_factory=dict)

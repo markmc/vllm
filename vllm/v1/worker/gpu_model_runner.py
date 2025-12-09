@@ -263,6 +263,7 @@ class ExecuteModelState(NamedTuple):
     aux_hidden_states: list[torch.Tensor] | None
     ec_connector_output: ECConnectorOutput | None
     cudagraph_stats: CUDAGraphStat | None
+    eplb_stats: "EPLBStats | None"
 
 
 class GPUModelRunner(
@@ -2362,17 +2363,23 @@ class GPUModelRunner(
             }
         )
 
-    def eplb_step(self, is_dummy: bool = False, is_profile: bool = False) -> None:
+    def eplb_step(
+        self, is_dummy: bool = False, is_profile: bool = False
+    ) -> "EPLBStats | None":
         """
         Step for the EPLB (Expert Parallelism Load Balancing) state.
+
+        Returns:
+            EPLBStats | None: EPLB statistics if EPLB is enabled and
+                log_balancedness is True, otherwise None.
         """
         if not self.parallel_config.enable_eplb:
-            return
+            return None
 
         assert self.eplb_state is not None
         model = self.get_model()
         assert is_mixture_of_experts(model)
-        self.eplb_state.step(
+        return self.eplb_state.step(
             is_dummy,
             is_profile,
             log_stats=self.parallel_config.eplb_config.log_balancedness,
@@ -3142,6 +3149,7 @@ class GPUModelRunner(
             aux_hidden_states,
             ec_connector_output,
             cudagraph_stats,
+            eplb_stats=None,  # EPLB step happens later in sample_tokens()
         )
         self.kv_connector_output = kv_connector_output
         return None
@@ -3279,7 +3287,7 @@ class GPUModelRunner(
             propose_draft_token_ids(valid_sampled_token_ids)
 
         with record_function_or_nullcontext("gpu_model_runner: eplb"):
-            self.eplb_step()
+            eplb_stats = self.eplb_step()
         with record_function_or_nullcontext("gpu_model_runner: ModelRunnerOutput"):
             output = ModelRunnerOutput(
                 req_ids=req_ids_output_copy,
@@ -3294,6 +3302,7 @@ class GPUModelRunner(
                 else None,
                 num_nans_in_logits=num_nans_in_logits,
                 cudagraph_stats=cudagraph_stats,
+                eplb_stats=eplb_stats,
             )
 
         if not self.use_async_scheduling:

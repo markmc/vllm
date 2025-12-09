@@ -43,6 +43,7 @@ from vllm.distributed.parallel_state import (
 from vllm.distributed.utils import StatelessProcessGroup
 from vllm.logger import init_logger
 from vllm.model_executor.models.interfaces import MixtureOfExperts
+from vllm.v1.metrics.stats import EPLBStats
 
 from .async_worker import start_async_worker
 from .policy import EPLB_POLICIES, AbstractEplbPolicy, DefaultEplbPolicy
@@ -523,7 +524,7 @@ class EplbState:
         is_dummy: bool = False,
         is_profile: bool = False,
         log_stats: bool = False,
-    ) -> None:
+    ) -> EPLBStats | None:
         """
         Step the EPLB state.
 
@@ -535,7 +536,12 @@ class EplbState:
                 with maximum communication cost. This is used in
                 `profile_run` to reserve enough memory
                 for the communication buffer.
-            log_stats (bool): If `True`, log the expert load metrics.
+            log_stats (bool): If `True`, log the expert load metrics and
+                return EPLBStats.
+
+        Returns:
+            EPLBStats | None: EPLB statistics if log_stats is True,
+                otherwise None.
 
         # Stats
             The metrics are all summed up across layers.
@@ -546,13 +552,14 @@ class EplbState:
         ep_group = get_ep_group().device_group
         if is_profile:
             self.rearrange(is_profile=True)
-            return
+            return None
 
         if is_dummy:
             # Do not record load metrics for dummy steps
             for eplb_model_state in self.model_states.values():
                 eplb_model_state.expert_load_pass.zero_()
 
+        stats: EPLBStats | None = None
         if log_stats:
             # Sync the expert load pass for each model (main and drafter).
             # expert_load_pass: (num_moe_layers, num_physical_experts)
@@ -592,6 +599,21 @@ class EplbState:
                         avg_tokens,
                         max_tokens,
                         balancedness,
+                    )
+
+                # Create stats object (use stats from first model if multiple)
+                if stats is None:
+                    # Check if currently rebalancing (async mode)
+                    is_rebalancing = any(
+                        model_state.rebalanced
+                        for model_state in self.model_states.values()
+                    )
+
+                    stats = EPLBStats(
+                        avg_tokens_per_rank=avg_tokens,
+                        max_tokens_per_rank=int(max_tokens),
+                        num_rebalance_events=0,  # Will be incremented below
+                        is_rebalancing=is_rebalancing,
                     )
 
         # Update the expert load sliding window
@@ -653,9 +675,14 @@ class EplbState:
                 for eplb_model_state in self.model_states.values()
             ):
                 # Still performing asynchronous rearrangement
-                return
+                return stats
             self.expert_rearrangement_step = 0
             self.rearrange()
+            # Increment rebalance event counter if stats are being tracked
+            if stats is not None:
+                stats.num_rebalance_events = 1
+
+        return stats
 
     def rearrange(
         self,

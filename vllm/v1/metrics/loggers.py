@@ -245,6 +245,18 @@ class LoggingStatLogger(StatLoggerBase):
             log_parts.append("MM cache hit rate: %.1f%%")
             log_args.append(self.mm_caching_metrics.hit_rate * 100)
 
+        # EPLB metrics
+        if self.last_scheduler_stats.eplb_stats is not None:
+            eplb_stats = self.last_scheduler_stats.eplb_stats
+            if eplb_stats.max_tokens_per_rank > 0:
+                imbalance_ratio = 1.0 - (
+                    eplb_stats.avg_tokens_per_rank / eplb_stats.max_tokens_per_rank
+                )
+                log_parts.append("EPLB imbalance: %.1f%%")
+                log_args.append(imbalance_ratio * 100)
+            if eplb_stats.is_rebalancing:
+                log_parts.append("EPLB: rebalancing")
+
         log_fn(
             self.log_prefix + ", ".join(log_parts),
             *log_args,
@@ -984,6 +996,54 @@ class PrometheusStatLogger(AggregateStatLoggerBase):
                 ],
             )
 
+        #
+        # EPLB (Expert Parallel Load Balancing) metrics
+        #
+        gauge_eplb_avg_tokens_per_rank = self._gauge_cls(
+            name="vllm:eplb_avg_tokens_per_rank",
+            documentation=(
+                "Average tokens processed per EP rank in the current interval."
+            ),
+            multiprocess_mode="mostrecent",
+            labelnames=labelnames,
+        )
+        self.gauge_eplb_avg_tokens_per_rank = make_per_engine(
+            gauge_eplb_avg_tokens_per_rank, engine_indexes, model_name
+        )
+
+        gauge_eplb_max_tokens_per_rank = self._gauge_cls(
+            name="vllm:eplb_max_tokens_per_rank",
+            documentation=(
+                "Maximum tokens processed by any EP rank in the current interval."
+            ),
+            multiprocess_mode="mostrecent",
+            labelnames=labelnames,
+        )
+        self.gauge_eplb_max_tokens_per_rank = make_per_engine(
+            gauge_eplb_max_tokens_per_rank, engine_indexes, model_name
+        )
+
+        counter_eplb_rebalance_events = self._counter_cls(
+            name="vllm:eplb_rebalance_events_total",
+            documentation="Total number of EPLB rebalancing operations.",
+            labelnames=labelnames,
+        )
+        self.counter_eplb_rebalance_events = make_per_engine(
+            counter_eplb_rebalance_events, engine_indexes, model_name
+        )
+
+        gauge_eplb_rebalancing = self._gauge_cls(
+            name="vllm:eplb_rebalancing",
+            documentation=(
+                "Whether EPLB is currently rebalancing. 1 = rebalancing, 0 = not rebalancing."
+            ),
+            multiprocess_mode="mostrecent",
+            labelnames=labelnames,
+        )
+        self.gauge_eplb_rebalancing = make_per_engine(
+            gauge_eplb_rebalancing, engine_indexes, model_name
+        )
+
     def log_metrics_info(self, type: str, config_obj: SupportsMetricsInfo):
         metrics_info = config_obj.metrics_info()
         metrics_info["engine"] = ""
@@ -1077,6 +1137,21 @@ class PrometheusStatLogger(AggregateStatLoggerBase):
                     self.labelname_max_lora: self.max_lora,
                 }
                 self.gauge_lora_info.labels(**lora_info_labels).set_to_current_time()
+
+            # EPLB metrics
+            if scheduler_stats.eplb_stats is not None:
+                self.gauge_eplb_avg_tokens_per_rank[engine_idx].set(
+                    scheduler_stats.eplb_stats.avg_tokens_per_rank
+                )
+                self.gauge_eplb_max_tokens_per_rank[engine_idx].set(
+                    scheduler_stats.eplb_stats.max_tokens_per_rank
+                )
+                self.counter_eplb_rebalance_events[engine_idx].inc(
+                    scheduler_stats.eplb_stats.num_rebalance_events
+                )
+                self.gauge_eplb_rebalancing[engine_idx].set(
+                    1 if scheduler_stats.eplb_stats.is_rebalancing else 0
+                )
 
         if mm_cache_stats is not None:
             self.counter_mm_cache_queries[engine_idx].inc(mm_cache_stats.queries)
