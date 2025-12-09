@@ -332,6 +332,234 @@ Load balancer can answer:
 
 ---
 
+## High-Cardinality Per-Expert Metrics Design
+
+**Purpose**: This section analyzes **proposed** per-expert metrics from three PR branches to recommend which (if any) should be merged into vLLM for load balancing use cases.
+
+### Current State in vLLM (origin/main)
+
+**As of December 2025, vLLM `origin/main` has NO per-expert or per-rank metrics implemented.**
+
+No expert usage histogram collection exists in the current codebase. All per-expert metrics discussed below are **proposed implementations** in PR branches, NOT yet merged into vLLM:
+
+- PR #21732: `EPLB_metrics` branch
+- PR #19915: `histogram` branch
+- PR #27105: `patryk/expert-usage-histogram` branch (current working branch)
+
+### PR Branch Analysis
+
+Three PRs explored different approaches to expert-level metrics:
+
+#### PR #21732: `EPLB_metrics` Branch
+
+**Focus**: Physical expert heat tracking with EPLB context
+
+**Metrics proposed**:
+```python
+# Heat of physical experts (before EPLB replication)
+vllm:phy_expert_heat{rank, layer, phy_expert_id}  # Counter
+    documentation: "Heat of each physical expert per rank"
+
+# Physical-to-logical expert mapping
+vllm:phy2log{rank, layer, phy_expert_id, log_expert_id}  # Gauge
+    documentation: "Physical to logical expert mapping"
+```
+
+**Implementation approach**:
+- Background thread periodically records metrics
+- Exports physical expert IDs (before EPLB remapping)
+- Tracks mapping between physical and logical experts
+
+**Cardinality**: With EPLB enabled, physical expert count can be 2-4x logical expert count
+- Example: DeepSeek-R1 with 256 logical experts → 512-1024 physical experts
+- Total: 512-1024 physical experts × 60 layers × N ranks = **30K-60K+ time series per instance**
+
+#### PR #19915: `histogram` Branch
+
+**Focus**: Basic expert selection counters
+
+**Metrics proposed**:
+```python
+# Expert selection histogram (logical experts)
+vllm:moe_expert_selection_counter{model_name, engine, layer, expert}  # Counter
+    documentation: "Histogram (actually Counter) of MoE expert selection"
+```
+
+**Implementation approach**:
+- Added Triton kernel `collect_expert_usage_histogram()` for efficient histogram collection
+- Accumulates counts over configurable interval
+- Exposes only logical expert counts (post-EPLB if enabled)
+
+**Cardinality**: 256 experts × 60 layers = **15,360 time series per instance**
+
+#### PR #27105: `patryk/expert-usage-histogram` Branch
+
+**Focus**: Expert selection + per-rank distribution
+
+**Metrics proposed**:
+```python
+# Expert selection histogram (same as #19915)
+vllm:moe_expert_selection_counter{model_name, engine, layer, expert}  # Counter
+    documentation: "Histogram (actually Counter) of MoE expert selection"
+
+# Per-rank expert token distribution
+vllm:moe_per_rank_expert_selection_counter{model_name, engine, layer, rank}  # Counter
+    documentation: "Histogram (actually Counter) of MoE expert selection per rank"
+```
+
+**Implementation approach**:
+- Same Triton kernel as #19915
+- Added per-EP-rank aggregation: `[num_layers, num_ranks]` histogram
+- Both metrics controlled by `VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM` flag
+- Includes `expert_logging()` method in `gpu_model_runner.py`
+- When EPLB enabled: remaps physical experts to logical experts
+
+**Cardinality**:
+- Per-expert: 256 experts × 60 layers = **15,360 time series**
+- Per-rank: 60 layers × (DP_size × TP_size) ranks = **60-240 time series** (much lower!)
+
+### Recommended Metrics for Final Proposal
+
+Based on the analysis, recommend **two-tier approach**:
+
+#### Tier 1: Always Enabled (Low Cardinality)
+
+```python
+# Per-rank token distribution (from PR #27105 - NOT YET IN vLLM)
+vllm:moe_per_rank_expert_selection_counter{model_name, engine, layer, rank}  # Counter
+```
+
+**Recommendation: If implemented, enable by default because**:
+- **Low cardinality**: Only 60-240 time series (layers × ranks)
+- **Actionable for EPLB**: Shows which EP ranks are overloaded
+- **Complements instance metrics**: Provides layer-by-layer breakdown of what `eplb_max_tokens_per_rank` aggregates
+- **Debugging value**: Identifies if specific layers have hotspots
+
+**Use cases**:
+```promql
+# Identify which rank is bottleneck
+topk(5, sum by (rank) (rate(vllm:moe_per_rank_expert_selection_counter[5m])))
+
+# Per-layer rank imbalance
+stddev by (layer) (rate(vllm:moe_per_rank_expert_selection_counter[5m]))
+```
+
+#### Tier 2: Opt-In (High Cardinality)
+
+```python
+# Per-expert selection counts (from PR #19915/#27105 - NOT YET IN vLLM)
+vllm:moe_expert_selection_counter{model_name, engine, layer, expert}  # Counter
+```
+
+**Recommendation: If implemented, disable by default** but make available via:
+```bash
+export VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM=1
+```
+
+**Why opt-in only**:
+- **High cardinality**: 15,360 time series for DeepSeek-R1 (256 experts × 60 layers)
+- **Unclear ROI**: No demonstrated use case for workload-aware routing based on expert-level load
+- **Alternative approaches**: Could aggregate to top-K hottest experts only
+- **Cost**: With 100 replicas, creates 1.5M time series total
+
+**If enabled, use cases**:
+```promql
+# Top 10 hottest experts across all layers
+topk(10, sum by (expert) (rate(vllm:moe_expert_selection_counter[5m])))
+
+# Expert heat imbalance within a layer
+stddev by (layer) (rate(vllm:moe_expert_selection_counter[5m]))
+
+# Identify if specific expert is causing bottleneck
+rate(vllm:moe_expert_selection_counter{layer="30", expert="42"}[5m])
+```
+
+#### Tier 3: Not Recommended
+
+```python
+# Physical expert metrics (from PR #21732)
+vllm:phy_expert_heat{rank, layer, phy_expert_id}
+vllm:phy2log{rank, layer, phy_expert_id, log_expert_id}
+```
+
+**Why exclude**:
+- **Extremely high cardinality**: 30K-60K+ time series (physical experts × layers × ranks)
+- **Internal implementation detail**: Physical experts are EPLB's internal representation
+- **Not actionable**: Load balancer routes to instances, not physical experts
+- **Redundant**: Logical expert metrics + per-rank metrics provide same signal
+
+### Implementation Strategy
+
+**Phase 1 (Implemented on `epblb-metrics-claude` branch)**: Instance-level EPLB metrics
+- ✅ `vllm:eplb_avg_tokens_per_rank`
+- ✅ `vllm:eplb_max_tokens_per_rank`
+- ✅ `vllm:eplb_rebalance_events_total`
+- ✅ `vllm:eplb_rebalancing`
+- **Status**: Code complete on branch, not yet in `origin/main`
+
+**Phase 2 (Proposed from PR #27105)**: Add per-rank metrics by default
+- Proposal: Enable `vllm:moe_per_rank_expert_selection_counter` without feature flag
+- Low cardinality makes this safe to always expose
+- Provides layer-level visibility into rank imbalance
+- **Status**: Implementation exists in PR #27105, requires merge + removal of feature flag
+
+**Phase 3 (Proposed from PR #19915/#27105)**: Per-expert metrics behind flag
+- Proposal: Add `vllm:moe_expert_selection_counter` behind `VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM`
+- Document cardinality impact clearly
+- Wait for concrete external use case before enabling by default
+- **Status**: Implementation exists in PR branches, requires merge with feature flag
+
+### Configuration Recommendations (If Implemented)
+
+**Proposed default configuration** (production):
+```python
+# In vllm/envs.py (NOT YET IMPLEMENTED)
+VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM = False  # Keep default off
+```
+
+**Proposed exposed metrics** (even with flag off):
+- Instance-level EPLB metrics (Phase 1) - ✅ **Already implemented on epblb-metrics-claude branch**
+- Per-rank token counts (Phase 2) - **Proposed: enable by default from PR #27105**
+
+**Proposed opt-in configuration** (debugging/profiling):
+```bash
+# Enable high-cardinality per-expert metrics (from PR #19915/#27105)
+export VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM=1
+export VLLM_EXPERT_USAGE_HISTOGRAM_SAVE_INTERVAL=100
+```
+
+This would expose:
+- Per-expert selection counters (15K+ time series)
+- All lower-tier metrics
+
+### Cardinality Comparison Table
+
+| Metric | Cardinality Formula | DeepSeek-R1 Example | Recommendation |
+|--------|-------------------|-------------------|----------------|
+| `eplb_avg_tokens_per_rank` | 1 per instance | 1 | ✅ Always |
+| `eplb_max_tokens_per_rank` | 1 per instance | 1 | ✅ Always |
+| `eplb_rebalancing` | 1 per instance | 1 | ✅ Always |
+| `eplb_rebalance_events_total` | 1 per instance | 1 | ✅ Always |
+| `moe_per_rank_expert_selection_counter` | layers × ranks | 60 × 4 = 240 | ✅ Always (Phase 2) |
+| `moe_expert_selection_counter` | layers × experts | 60 × 256 = 15,360 | ⚠️ Opt-in only |
+| `phy_expert_heat` | layers × ranks × phy_experts | 60 × 4 × 512 = 122,880 | ❌ Do not implement |
+
+### Open Questions
+
+1. **Sampling strategy**: For per-expert metrics, could we expose only top-K hottest experts to cap cardinality?
+   - Example: Export only experts with >1% of total traffic
+   - Would reduce from 15K to <100 time series in practice
+
+2. **Aggregation interval**: Current implementation uses `VLLM_EXPERT_USAGE_HISTOGRAM_SAVE_INTERVAL=100`
+   - Is this the right frequency for Prometheus scraping?
+   - Higher interval = less overhead, but delayed visibility
+
+3. **Cross-instance correlation**: If deploying 100 replicas with per-expert metrics enabled:
+   - Should metrics be aggregated across instances before export?
+   - Or keep per-instance for debugging but aggregate in Prometheus queries?
+
+---
+
 ## Appendix: Why Original Requirements Don't Apply
 
 The original `EPLB_OBSERVABILITY_REQUIREMENTS.txt` assumes a microservices architecture with:
