@@ -338,17 +338,19 @@ Load balancer can answer:
 
 ### Current State in vLLM (origin/main)
 
-**As of December 2025, vLLM `origin/main` has NO per-expert or per-rank metrics implemented.**
+**As of December 2025, vLLM `origin/main` has NO per-expert, per-rank, EPLB, or DBO metrics implemented.**
 
-No expert usage histogram collection exists in the current codebase. All per-expert metrics discussed below are **proposed implementations** in PR branches, NOT yet merged into vLLM:
+All metrics discussed below are **proposed implementations** in various branches, NOT yet merged into vLLM:
 
 - PR #21732: `EPLB_metrics` branch
 - PR #19915: `histogram` branch
-- PR #27105: `patryk/expert-usage-histogram` branch (current working branch)
+- PR #27105: `patryk/expert-usage-histogram` branch
+- `sallyom/dbo-eplb-stats` branch
+- `epblb-metrics-claude` branch (Phase 1 EPLB metrics)
 
 ### PR Branch Analysis
 
-Three PRs explored different approaches to expert-level metrics:
+Four proposal branches explore different approaches to expert-level and EPLB metrics:
 
 #### PR #21732: `EPLB_metrics` Branch
 
@@ -417,6 +419,52 @@ vllm:moe_per_rank_expert_selection_counter{model_name, engine, layer, rank}  # C
 **Cardinality**:
 - Per-expert: 256 experts × 60 layers = **15,360 time series**
 - Per-rank: 60 layers × (DP_size × TP_size) ranks = **60-240 time series** (much lower!)
+
+#### `sallyom/dbo-eplb-stats` Branch
+
+**Focus**: Comprehensive EPLB, DBO, and throughput metrics with safety features
+
+**Metrics proposed**:
+```python
+# EPLB metrics (per-layer granularity)
+vllm:eplb_avg_tokens_per_rank{model_name, engine, layer}  # Gauge
+vllm:eplb_max_tokens_per_rank{model_name, engine, layer}  # Gauge
+vllm:eplb_balancedness_ratio{model_name, engine, layer}  # Gauge (avg/max)
+vllm:eplb_rebalancing{model_name, engine}  # Gauge: 0 or 1
+vllm:eplb_rearrangements_total{model_name, engine}  # Counter
+vllm:eplb_rearrangement_duration_seconds{model_name, engine}  # Histogram
+
+# DBO (Dual Batch Overlap) metrics
+vllm:dbo_active{model_name, engine, phase}  # Gauge, phase = prefill|decode
+vllm:dbo_fallout_total{model_name, engine, reason}  # Counter
+vllm:ubatch_token_count{model_name, engine, ubatch_index}  # Histogram
+
+# Throughput metrics
+vllm:prompt_throughput_toks_per_s{model_name, engine}  # Gauge
+vllm:generation_throughput_toks_per_s{model_name, engine}  # Gauge
+
+# Debug per-expert metrics (opt-in with auto-disable)
+vllm:expert_load_per_expert_tokens_DEBUG{model_name, engine, layer, expert_id}  # Gauge
+```
+
+**Implementation approach**:
+- `EplbStats` and `DboStats` dataclasses in `stats.py`
+- Per-layer EPLB metrics instead of instance-level aggregates
+- DBO fallout tracking with specific reasons (`empty_second_ubatch`, `coordination_failure`)
+- Debug per-expert metrics with auto-disable timer (safety feature)
+- Full wiring: `eplb_state.py` → `gpu_model_runner.py` → `scheduler.py` → `loggers.py`
+
+**Cardinality**:
+- EPLB metrics: ~180 time series (60 layers × 3 metrics)
+- DBO metrics: ~7 time series (2 active gauges + reasons + ubatch histogram)
+- Throughput: 2 time series
+- Debug per-expert: 15,360 time series when enabled (opt-in only, auto-disables)
+
+**Key differences from Phase 1 proposal**:
+- Per-layer granularity vs instance-level (60x more EPLB metrics, but still low cardinality)
+- Adds DBO metrics (new capability not in other proposals)
+- Adds throughput metrics
+- Includes opt-in debug per-expert metrics with auto-disable safety
 
 ### Recommended Metrics for Final Proposal
 
@@ -488,26 +536,33 @@ vllm:phy2log{rank, layer, phy_expert_id, log_expert_id}
 - **Not actionable**: Load balancer routes to instances, not physical experts
 - **Redundant**: Logical expert metrics + per-rank metrics provide same signal
 
-### Implementation Strategy
+### Comparison of Proposal Branches
 
-**Phase 1 (Implemented on `epblb-metrics-claude` branch)**: Instance-level EPLB metrics
-- ✅ `vllm:eplb_avg_tokens_per_rank`
-- ✅ `vllm:eplb_max_tokens_per_rank`
-- ✅ `vllm:eplb_rebalance_events_total`
-- ✅ `vllm:eplb_rebalancing`
-- **Status**: Code complete on branch, not yet in `origin/main`
+**epblb-metrics-claude branch**: Instance-level EPLB metrics (4 metrics, ~4 time series)
+- Simple instance-level aggregates
+- Minimal cardinality
+- Covers basic load balancer needs
+- **Status**: Proposal, not yet in `origin/main`
 
-**Phase 2 (Proposed from PR #27105)**: Add per-rank metrics by default
-- Proposal: Enable `vllm:moe_per_rank_expert_selection_counter` without feature flag
-- Low cardinality makes this safe to always expose
-- Provides layer-level visibility into rank imbalance
-- **Status**: Implementation exists in PR #27105, requires merge + removal of feature flag
+**sallyom/dbo-eplb-stats branch**: Comprehensive EPLB + DBO + throughput (13+ metrics, ~190 time series)
+- Per-layer EPLB granularity instead of instance-level
+- Adds DBO metrics (new capability)
+- Adds throughput metrics
+- Includes opt-in debug per-expert metrics with auto-disable
+- **Status**: Proposal, not yet in `origin/main`
 
-**Phase 3 (Proposed from PR #19915/#27105)**: Per-expert metrics behind flag
-- Proposal: Add `vllm:moe_expert_selection_counter` behind `VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM`
-- Document cardinality impact clearly
-- Wait for concrete external use case before enabling by default
-- **Status**: Implementation exists in PR branches, requires merge with feature flag
+**PR #27105**: Per-rank + per-expert metrics (2 metrics, 240-15K time series)
+- Per-rank distribution (low cardinality, 240 time series)
+- Per-expert counters (high cardinality, 15K time series) behind flag
+- **Status**: Proposal, not yet in `origin/main`
+
+**PR #19915**: Basic per-expert metrics (1 metric, 15K time series)
+- Per-expert selection counters only
+- **Status**: Proposal, not yet in `origin/main`
+
+**PR #21732**: Physical expert metrics (2 metrics, 30K-60K+ time series)
+- Tracks physical experts (EPLB internal implementation detail)
+- **Status**: Proposal, not recommended due to extreme cardinality
 
 ### Configuration Recommendations (If Implemented)
 
@@ -518,8 +573,11 @@ VLLM_COLLECT_EXPERT_USAGE_HISTOGRAM = False  # Keep default off
 ```
 
 **Proposed exposed metrics** (even with flag off):
-- Instance-level EPLB metrics (Phase 1) - ✅ **Already implemented on epblb-metrics-claude branch**
-- Per-rank token counts (Phase 2) - **Proposed: enable by default from PR #27105**
+- Instance-level EPLB metrics - **Proposed in epblb-metrics-claude branch**
+- Per-layer EPLB metrics - **Proposed in sallyom/dbo-eplb-stats branch**
+- DBO metrics - **Proposed in sallyom/dbo-eplb-stats branch**
+- Throughput metrics - **Proposed in sallyom/dbo-eplb-stats branch**
+- Per-rank token counts - **Proposed in PR #27105**
 
 **Proposed opt-in configuration** (debugging/profiling):
 ```bash
@@ -534,15 +592,34 @@ This would expose:
 
 ### Cardinality Comparison Table
 
-| Metric | Cardinality Formula | DeepSeek-R1 Example | Recommendation |
-|--------|-------------------|-------------------|----------------|
-| `eplb_avg_tokens_per_rank` | 1 per instance | 1 | ✅ Always |
-| `eplb_max_tokens_per_rank` | 1 per instance | 1 | ✅ Always |
-| `eplb_rebalancing` | 1 per instance | 1 | ✅ Always |
-| `eplb_rebalance_events_total` | 1 per instance | 1 | ✅ Always |
-| `moe_per_rank_expert_selection_counter` | layers × ranks | 60 × 4 = 240 | ✅ Always (Phase 2) |
-| `moe_expert_selection_counter` | layers × experts | 60 × 256 = 15,360 | ⚠️ Opt-in only |
-| `phy_expert_heat` | layers × ranks × phy_experts | 60 × 4 × 512 = 122,880 | ❌ Do not implement |
+| Metric | Cardinality Formula | DeepSeek-R1 Example | Proposal Source | Recommendation |
+|--------|-------------------|-------------------|-----------------|----------------|
+| **Instance-level EPLB (epblb-metrics-claude)** |||||
+| `eplb_avg_tokens_per_rank` | 1 per instance | 1 | epblb-metrics-claude | ✅ Low cardinality |
+| `eplb_max_tokens_per_rank` | 1 per instance | 1 | epblb-metrics-claude | ✅ Low cardinality |
+| `eplb_rebalancing` | 1 per instance | 1 | epblb-metrics-claude | ✅ Low cardinality |
+| `eplb_rebalance_events_total` | 1 per instance | 1 | epblb-metrics-claude | ✅ Low cardinality |
+| **Per-layer EPLB (sallyom/dbo-eplb-stats)** |||||
+| `eplb_avg_tokens_per_rank{layer}` | layers | 60 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `eplb_max_tokens_per_rank{layer}` | layers | 60 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `eplb_balancedness_ratio{layer}` | layers | 60 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `eplb_rebalancing` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `eplb_rearrangements_total` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `eplb_rearrangement_duration_seconds` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Low cardinality |
+| `expert_load_per_expert_tokens_DEBUG{layer,expert}` | layers × experts | 15,360 | sallyom/dbo-eplb-stats | ⚠️ Opt-in, auto-disable |
+| **DBO metrics (sallyom/dbo-eplb-stats)** |||||
+| `dbo_active{phase}` | 2 phases | 2 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
+| `dbo_fallout_total{reason}` | ~3 reasons | 3 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
+| `ubatch_token_count{ubatch_index}` | 2 ubatches | 2 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
+| **Throughput (sallyom/dbo-eplb-stats)** |||||
+| `prompt_throughput_toks_per_s` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
+| `generation_throughput_toks_per_s` | 1 per instance | 1 | sallyom/dbo-eplb-stats | ✅ Very low cardinality |
+| **Per-rank metrics (PR #27105)** |||||
+| `moe_per_rank_expert_selection_counter{layer,rank}` | layers × ranks | 60 × 4 = 240 | PR #27105 | ✅ Low cardinality |
+| **Per-expert metrics (PR #19915/#27105)** |||||
+| `moe_expert_selection_counter{layer,expert}` | layers × experts | 60 × 256 = 15,360 | PR #19915/#27105 | ⚠️ Opt-in only |
+| **Physical expert metrics (PR #21732)** |||||
+| `phy_expert_heat{rank,layer,phy_expert}` | layers × ranks × phy_experts | 60 × 4 × 512 = 122,880 | PR #21732 | ❌ Do not implement |
 
 ### Open Questions
 
@@ -557,6 +634,134 @@ This would expose:
 3. **Cross-instance correlation**: If deploying 100 replicas with per-expert metrics enabled:
    - Should metrics be aggregated across instances before export?
    - Or keep per-instance for debugging but aggregate in Prometheus queries?
+
+---
+
+## DBO (Dual Batch Overlap) Metrics - Proposed in `sallyom/dbo-eplb-stats`
+
+### Problem Statement
+
+**What is DBO**: Dual Batch Overlap (DBO) is a technique that splits batches into two micro-batches (ubatches) to overlap computation and communication, improving throughput in Data-Parallel (DP) deployments.
+
+**Why it matters**: DBO can significantly improve throughput, but it's fragile:
+- Falls out silently when second ubatch would be empty (e.g., at 256-token boundaries)
+- Coordination failures across DP ranks cause silent degradation
+- No visibility into when/why DBO disengages
+
+**Impact**: Production WideEP deployments show unpredictable throughput variance. DBO fallout is a suspected root cause, but there's no instrumentation to confirm.
+
+### Metrics Proposed
+
+**Status**: Proposed in `sallyom/dbo-eplb-stats` branch (NOT in origin/main)
+
+| Metric | Type | Description | Labels |
+|--------|------|-------------|--------|
+| `vllm:dbo_active` | Gauge | Whether DBO is currently engaged (1=active, 0=inactive) | model_name, engine, phase (prefill/decode) |
+| `vllm:dbo_fallout_total` | Counter | Count of DBO fallout events | model_name, engine, reason |
+| `vllm:ubatch_token_count` | Histogram | Distribution of ubatch sizes in tokens | model_name, engine, ubatch_index (first/second) |
+
+**Fallout Reasons**:
+- `empty_second_ubatch` - Second ubatch would be empty after padding (common at 256-token boundaries)
+- `coordination_failure` - DP ranks disagreed on ubatching decision
+- `other` - Other reasons
+
+### Implementation Details (from sallyom/dbo-eplb-stats)
+
+**Stats Dataclass** (`vllm/v1/metrics/stats.py`):
+```python
+@dataclass
+class DboStats:
+    """Stats for Dual Batch Overlap (DBO)."""
+    prefill_active: bool = False        # DBO active for prefill
+    decode_active: bool = False         # DBO active for decode
+    first_ubatch_tokens: int = 0       # Token count in first ubatch
+    second_ubatch_tokens: int = 0      # Token count in second ubatch
+    fallout_reason: str = ""           # Why DBO fell out (if it did)
+```
+
+**Wiring** (in proposal):
+- `dp_utils.py`: Instrumented `_post_process_ubatch()` to track fallout reasons
+- `dp_utils.py`: `coordinate_batch_across_dp()` creates and returns `DboStats`
+- `gpu_model_runner.py`: Passes `DboStats` through to `ModelRunnerOutput`
+- `outputs.py`: Added `dbo_stats` field to `ModelRunnerOutput`
+- `scheduler.py`: Passes `dbo_stats` to `make_stats()`, includes in `SchedulerStats`
+- `loggers.py`: Records DBO metrics to Prometheus
+
+### Use Cases (If Implemented)
+
+**Detect DBO fallout rate**:
+```promql
+# DBO fallout events per minute by reason
+rate(vllm:dbo_fallout_total[1m]) by (reason)
+
+# Alert: High DBO fallout rate
+rate(vllm:dbo_fallout_total[5m]) > 2
+```
+
+**Monitor DBO engagement**:
+```promql
+# DBO active for decode phase
+vllm:dbo_active{phase="decode"}
+
+# Percentage of time DBO is active
+avg_over_time(vllm:dbo_active{phase="decode"}[5m])
+```
+
+**Analyze ubatch size distribution**:
+```promql
+# P95 ubatch size for second ubatch
+histogram_quantile(0.95, rate(vllm:ubatch_token_count_bucket{ubatch_index="second"}[5m]))
+
+# First vs second ubatch size comparison
+histogram_quantile(0.5, rate(vllm:ubatch_token_count_bucket{ubatch_index="first"}[5m]))
+/ histogram_quantile(0.5, rate(vllm:ubatch_token_count_bucket{ubatch_index="second"}[5m]))
+```
+
+### Debugging Workflow (If Implemented)
+
+1. **Observe throughput degradation** in production
+2. **Check DBO active state**:
+   ```promql
+   vllm:dbo_active{phase="decode"}  # Should be 1
+   ```
+3. **If DBO is falling out**, check reason:
+   ```promql
+   rate(vllm:dbo_fallout_total[5m]) by (reason)
+   ```
+4. **If `empty_second_ubatch` is high**, check ubatch distribution:
+   ```promql
+   histogram_quantile(0.95, rate(vllm:ubatch_token_count_bucket{ubatch_index="second"}[5m]))
+   ```
+   - If P95 is near 0 or 256, batch sizes are hitting the empty ubatch condition
+5. **If `coordination_failure` is high**, indicates DP rank disagreement
+
+---
+
+## Throughput Metrics - Proposed in `sallyom/dbo-eplb-stats`
+
+**Status**: Proposed in `sallyom/dbo-eplb-stats` branch (NOT in origin/main)
+
+### Metrics Proposed
+
+| Metric | Type | Description | Labels |
+|--------|------|-------------|--------|
+| `vllm:prompt_throughput_toks_per_s` | Gauge | Prompt throughput in tokens/s | model_name, engine |
+| `vllm:generation_throughput_toks_per_s` | Gauge | Generation throughput in tokens/s | model_name, engine |
+
+**Update Frequency**: Every 10 seconds in `PrometheusStatLogger.record()`
+
+### Use Cases (If Implemented)
+
+```promql
+# Per-engine throughput variance
+stddev(vllm:generation_throughput_toks_per_s) by (model_name)
+
+# Total cluster throughput
+sum(vllm:generation_throughput_toks_per_s) by (model_name)
+
+# Identify slow engines
+vllm:generation_throughput_toks_per_s < 1000
+```
 
 ---
 
