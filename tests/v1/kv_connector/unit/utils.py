@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 import tempfile
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -429,12 +430,60 @@ class MockKVConnector(KVConnectorBase_V1):
         pass
 
 
+class BlockingShutdownConnector(KVConnectorBase_V1):
+    """Test connector whose shutdown() blocks for a configurable duration.
+
+    Used to verify that the process-level SIGKILL enforced by shutdown_timeout
+    acts as a hard deadline when a connector blocks in shutdown().
+    """
+
+    def __init__(
+        self,
+        vllm_config: VllmConfig,
+        role: KVConnectorRole,
+        kv_cache_config: KVCacheConfig,
+    ):
+        super().__init__(vllm_config, role, kv_cache_config)
+        extra_config = self._kv_transfer_config.kv_connector_extra_config
+        self.shutdown_delay = float(extra_config.get("shutdown_delay", 0))
+        self._is_worker = role == KVConnectorRole.WORKER
+
+    def shutdown(self):
+        if self._is_worker and self.shutdown_delay > 0:
+            time.sleep(self.shutdown_delay)
+
+    def get_num_new_matched_tokens(self, request, num_computed_tokens):
+        return 0, False
+
+    def update_state_after_alloc(self, request, blocks, num_external_tokens):
+        pass
+
+    def build_connector_meta(self, scheduler_output):
+        return KVConnectorMetadata()
+
+    def start_load_kv(self, forward_context, **kwargs):
+        pass
+
+    def wait_for_layer_load(self, layer_name):
+        pass
+
+    def save_kv_layer(self, layer_name, kv_layer, attn_metadata, **kwargs):
+        pass
+
+    def wait_for_save(self):
+        pass
+
+
 KVConnectorFactory.register_connector(
     "TestExampleConnector", __name__, TestExampleConnector.__name__
 )
 
 KVConnectorFactory.register_connector(
     "MockKVConnector", __name__, MockKVConnector.__name__
+)
+
+KVConnectorFactory.register_connector(
+    "BlockingShutdownConnector", __name__, BlockingShutdownConnector.__name__
 )
 
 

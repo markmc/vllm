@@ -1769,13 +1769,8 @@ class NixlConnectorWorker:
             self.post_process_device_kv_on_receive_heterogeneous_attn(block_ids)
 
         # Handle timeout to avoid stranding blocks on remote.
-        now = time.perf_counter()
-        while self._reqs_to_send:
-            req_id, expires = next(iter(self._reqs_to_send.items()))
-            # Sorted dict, oldest requests are put first so we can exit early.
-            if now < expires:
-                break
-            count = self.consumer_notification_counts_by_req.pop(req_id, 0)
+        expired = self._expire_send_leases()
+        for req_id, count in expired:
             self.xfer_stats.record_kv_expired_req()
             logger.warning(
                 "Releasing expired KV blocks for request %s which were "
@@ -1783,11 +1778,28 @@ class NixlConnectorWorker:
                 req_id,
                 count,
             )
-            self._reqs_to_process.remove(req_id)
-            del self._reqs_to_send[req_id]
             done_sending.add(req_id)
 
         return done_sending, done_recving
+
+    def _expire_send_leases(self) -> list[tuple[ReqId, int]]:
+        """Remove entries from _reqs_to_send whose lease has expired.
+
+        Returns a list of (req_id, consumer_count) for each expired entry,
+        where consumer_count is how many D-side workers had notified before
+        expiry.
+        """
+        expired: list[tuple[ReqId, int]] = []
+        now = time.perf_counter()
+        while self._reqs_to_send:
+            req_id, expires = next(iter(self._reqs_to_send.items()))
+            if now < expires:
+                break
+            count = self.consumer_notification_counts_by_req.pop(req_id, 0)
+            self._reqs_to_process.discard(req_id)
+            del self._reqs_to_send[req_id]
+            expired.append((req_id, count))
+        return expired
 
     def _get_new_notifs(self) -> set[str]:
         """
@@ -2458,6 +2470,23 @@ class NixlConnectorWorker:
         if not hasattr(self, "_handshake_initiation_executor"):
             # error happens during init, no need to shutdown
             return
+
+        # Drain pending P→D transfers: wait for D-side completion
+        # notifications (or lease expiry) before deregistering memory,
+        # so that in-flight RDMA reads are not interrupted.
+        if self._reqs_to_send:
+            logger.info(
+                "[shutdown] NixlConnectorWorker: draining pending P→D "
+                "transfers count=%d",
+                len(self._reqs_to_send),
+            )
+            while self._reqs_to_send:
+                self._get_new_notifs()
+                self._expire_send_leases()
+                if self._reqs_to_send:
+                    time.sleep(0.01)
+            logger.info("[shutdown] NixlConnectorWorker: all P→D transfers drained")
+
         self._handshake_initiation_executor.shutdown(wait=False)
         for handles in self._recving_transfers.values():
             for handle in handles:

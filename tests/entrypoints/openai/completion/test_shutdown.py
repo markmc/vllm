@@ -3,6 +3,8 @@
 """Integration tests for shutdown behavior, timeout, and signal handling."""
 
 import asyncio
+import json
+import os
 import signal
 import subprocess
 import sys
@@ -14,7 +16,7 @@ import openai
 import psutil
 import pytest
 
-from tests.utils import RemoteOpenAIServer
+from tests.utils import VLLM_PATH, RemoteOpenAIServer
 from vllm.platforms import current_platform
 from vllm.utils.network_utils import get_open_port
 
@@ -566,5 +568,164 @@ async def test_multi_api_server_shutdown():
             proc.kill()
             proc.wait(timeout=5)
             pytest.fail("Process did not exit after SIGTERM")
+
+        await _assert_children_cleaned_up(child_pids)
+
+
+@pytest.fixture
+def setup_test_module_path(monkeypatch):
+    """Make tests.* modules importable in spawned subprocesses."""
+    repo_root = str(VLLM_PATH.resolve())
+    existing = os.environ.get("PYTHONPATH", "")
+    new_pythonpath = repo_root + (os.pathsep + existing if existing else "")
+    monkeypatch.setenv("PYTHONPATH", new_pythonpath)
+
+
+def _blocking_shutdown_server_args(
+    shutdown_timeout: int,
+    shutdown_delay: float,
+) -> list[str]:
+    kv_transfer_config = {
+        "kv_connector": "BlockingShutdownConnector",
+        "kv_connector_module_path": "tests.v1.kv_connector.unit.utils",
+        "kv_role": "kv_both",
+        "kv_connector_extra_config": {"shutdown_delay": shutdown_delay},
+    }
+    return [
+        "--dtype",
+        "bfloat16",
+        "--max-model-len",
+        "128",
+        "--enforce-eager",
+        "--gpu-memory-utilization",
+        "0.05",
+        "--max-num-seqs",
+        "2",
+        "--shutdown-timeout",
+        str(shutdown_timeout),
+        "--kv-transfer-config",
+        json.dumps(kv_transfer_config),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_blocking_shutdown_completes_within_timeout(
+    setup_test_module_path,
+):
+    """Connector blocks shutdown for less than timeout — exits cleanly."""
+    shutdown_delay = 3.0
+    shutdown_timeout = 30
+    server_args = _blocking_shutdown_server_args(shutdown_timeout, shutdown_delay)
+
+    with RemoteOpenAIServer(MODEL_NAME, server_args) as remote_server:
+        client = remote_server.get_async_client()
+        proc = remote_server.proc
+        child_pids = _get_child_pids(proc.pid)
+
+        # Send a request to ensure server is fully warmed up
+        await client.completions.create(model=MODEL_NAME, prompt="Hello", max_tokens=1)
+
+        start_time = time.time()
+        proc.send_signal(signal.SIGTERM)
+
+        # Should exit after ~shutdown_delay, well within timeout
+        max_wait = shutdown_delay + 15
+        for _ in range(int(max_wait * 10)):
+            if proc.poll() is not None:
+                break
+            time.sleep(0.1)
+
+        exit_time = time.time() - start_time
+
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
+            pytest.fail(f"Process did not exit within {max_wait}s after SIGTERM")
+
+        assert exit_time >= shutdown_delay * 0.5, (
+            f"Shutdown completed too quickly ({exit_time:.1f}s), "
+            f"expected >= {shutdown_delay * 0.5:.1f}s"
+        )
+        assert proc.returncode in (0, -15, None), (
+            f"Unexpected return code: {proc.returncode}"
+        )
+
+        await _assert_children_cleaned_up(child_pids)
+
+
+@pytest.mark.asyncio
+async def test_blocking_shutdown_killed_at_timeout(
+    setup_test_module_path,
+):
+    """Connector blocks longer than timeout — SIGKILL enforces deadline."""
+    shutdown_delay = 60.0
+    shutdown_timeout = 3
+    server_args = _blocking_shutdown_server_args(shutdown_timeout, shutdown_delay)
+
+    with RemoteOpenAIServer(MODEL_NAME, server_args) as remote_server:
+        client = remote_server.get_async_client()
+        proc = remote_server.proc
+        child_pids = _get_child_pids(proc.pid)
+
+        await client.completions.create(model=MODEL_NAME, prompt="Hello", max_tokens=1)
+
+        start_time = time.time()
+        proc.send_signal(signal.SIGTERM)
+
+        max_wait = shutdown_timeout + 15
+        for _ in range(int(max_wait * 10)):
+            if proc.poll() is not None:
+                break
+            time.sleep(0.1)
+
+        exit_time = time.time() - start_time
+
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
+            pytest.fail(f"Process did not exit within {max_wait}s after SIGTERM")
+
+        # Should not wait the full 60s delay — killed after ~timeout
+        assert exit_time < shutdown_timeout + 10, (
+            f"Shutdown took too long ({exit_time:.1f}s), "
+            f"expected < {shutdown_timeout + 10}s"
+        )
+
+        await _assert_children_cleaned_up(child_pids)
+
+
+@pytest.mark.asyncio
+async def test_blocking_shutdown_zero_timeout_exits_promptly(
+    setup_test_module_path,
+):
+    """With shutdown_timeout=0, server exits promptly despite blocking connector."""
+    shutdown_delay = 60.0
+    shutdown_timeout = 0
+    server_args = _blocking_shutdown_server_args(shutdown_timeout, shutdown_delay)
+
+    with RemoteOpenAIServer(MODEL_NAME, server_args) as remote_server:
+        client = remote_server.get_async_client()
+        proc = remote_server.proc
+        child_pids = _get_child_pids(proc.pid)
+
+        await client.completions.create(model=MODEL_NAME, prompt="Hello", max_tokens=1)
+
+        start_time = time.time()
+        proc.send_signal(signal.SIGTERM)
+
+        max_exit_time = 10.0
+        try:
+            proc.wait(timeout=max_exit_time)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+            pytest.fail(
+                f"Process did not exit within {max_exit_time}s with shutdown_timeout=0"
+            )
+
+        exit_time = time.time() - start_time
+        assert exit_time < max_exit_time, (
+            f"Shutdown took too long ({exit_time:.1f}s), expected < {max_exit_time}s"
+        )
 
         await _assert_children_cleaned_up(child_pids)
