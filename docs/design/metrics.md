@@ -535,6 +535,50 @@ better.
 
 ## Future Work
 
+### Cross-Frontend Metric Catalog and OTLP
+
+vLLM has Python and Rust frontends that collect the same scheduler and
+request-lifecycle facts, but currently register their Prometheus metrics
+independently. The Rust frontend deliberately mirrors the Python metric names,
+labels, help strings, and histogram buckets. This has already led to drift:
+some metric families are available in only one frontend, token-count histogram
+buckets are configured differently, and some apparently equivalent metrics are
+observed at different points in the request lifecycle.
+
+The frontends cannot share a live metrics registry: they run in different
+languages, use different Prometheus client libraries, and must remain usable
+independently. Instead, the likely direction is a declarative metric catalog as
+the single definition of the metric contract. The catalog should define, for
+each metric:
+
+- A stable identifier, Prometheus name, type, unit, description, labels, and
+  cardinality constraints.
+- Histogram bucket policies, including policies parameterized by configuration
+  such as `max_model_len`.
+- Feature availability, deprecation state, and the Prometheus counter naming
+  rules needed to produce compatible exposition output from both client
+  libraries.
+- Optional OTLP mappings. These must describe the intended OTLP metric name,
+  instrument type, resource attributes, and metric attributes explicitly;
+  they must not rely on mechanically translating `vllm:` names or Prometheus
+  labels. A GenAI semantic-convention mapping is a separate, deliberately
+  small contract from the broader vLLM operational metric catalog.
+
+Code generation can then produce thin, idiomatic Python and Rust bindings for
+their respective Prometheus and OTLP SDKs, as well as the metrics reference.
+The frontends will still perform their own request and scheduler bookkeeping,
+because their input objects and lifecycles differ. Shared conformance fixtures
+should exercise the same event sequences in both implementations and check the
+resulting metric observations and Prometheus metadata. This tests the semantic
+contract, rather than only checking that metric strings happen to match.
+
+The initial scope should be the stable metric families shared by both
+frontends. Framework-owned HTTP middleware metrics and connector-specific
+metrics can be brought into the catalog after their ownership, availability,
+and cardinality contracts are established. Prometheus exposition remains a
+compatibility contract during this work; native OTLP export is an additional
+publisher generated from the same catalog, not a replacement for `/metrics`.
+
 ### Parallel Sampling
 
 Some legacy metrics are only relevant in the context of "parallel
