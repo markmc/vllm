@@ -1,0 +1,1469 @@
+{
+  "method": "Student-t interval on paired per-run log latency ratios; throughput is the reciprocal for fixed output lengths. Intervals assume independent paired repetitions. Review warmup stability, noise and serving tails separately.",
+  "comparisons": [
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 128,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.3391153417129967,
+      "latency_ci95_percent": [
+        -0.9337171021040586,
+        0.25905525403877555
+      ],
+      "throughput_change_percent": 0.340269246932476,
+      "throughput_ci95_percent": [
+        -0.2583858918103459,
+        0.9425175496555243
+      ],
+      "measured_seconds_range": [
+        72.33258978743106,
+        74.08004877530038
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 128,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.6322616752764547,
+      "latency_ci95_percent": [
+        -2.6309356379746647,
+        1.4074386404563826
+      ],
+      "throughput_change_percent": 0.6362846593230175,
+      "throughput_ci95_percent": [
+        -1.3879047329520917,
+        2.702024154399443
+      ],
+      "measured_seconds_range": [
+        73.63981948886067,
+        75.76159141678363
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 32,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.11428373984461841,
+      "latency_ci95_percent": [
+        -0.4687582999866563,
+        0.7007411698026955
+      ],
+      "throughput_change_percent": -0.11415328120570119,
+      "throughput_ci95_percent": [
+        -0.6958649575588507,
+        0.4709659921650445
+      ],
+      "measured_seconds_range": [
+        70.24074731767178,
+        72.07920057699084
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 32,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.6061602674120771,
+      "latency_ci95_percent": [
+        -2.6228455439048703,
+        1.4522906524406949
+      ],
+      "throughput_change_percent": 0.6098569781013675,
+      "throughput_ci95_percent": [
+        -1.4315010958362784,
+        2.6934916701508715
+      ],
+      "measured_seconds_range": [
+        71.144467019476,
+        72.92933992948383
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 128,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.02593617576206037,
+      "latency_ci95_percent": [
+        -1.1500529732008287,
+        1.1109640233101088
+      ],
+      "throughput_change_percent": 0.02594290435933279,
+      "throughput_ci95_percent": [
+        -1.0987572258276435,
+        1.1634330698113962
+      ],
+      "measured_seconds_range": [
+        73.18007039744407,
+        74.36109810881317
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 128,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.034303313910132784,
+      "latency_ci95_percent": [
+        -0.5622557686222166,
+        0.6344413466862019
+      ],
+      "throughput_change_percent": -0.03429155077182687,
+      "throughput_ci95_percent": [
+        -0.6304415647328413,
+        0.56543495929868
+      ],
+      "measured_seconds_range": [
+        73.22598254028708,
+        74.21139000263065
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 32,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.2341226892401339,
+      "latency_ci95_percent": [
+        -1.7503783596183227,
+        1.3055328804920598
+      ],
+      "throughput_change_percent": 0.23467210989471599,
+      "throughput_ci95_percent": [
+        -1.2887083690010976,
+        1.7815624430851729
+      ],
+      "measured_seconds_range": [
+        70.93541003763676,
+        72.5474930908531
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 1,
+      "batch": 32,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.13148057640494445,
+      "latency_ci95_percent": [
+        -0.9358893036883771,
+        1.210350872268645
+      ],
+      "throughput_change_percent": -0.13130793197911292,
+      "throughput_ci95_percent": [
+        -1.1958765697751155,
+        0.9447309394997904
+      ],
+      "measured_seconds_range": [
+        70.45629777852446,
+        71.63398380577564
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "input_len": 1024,
+      "output_len": 128,
+      "batch": 128,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.06200398809039473,
+      "latency_ci95_percent": [
+        0.0202449434973657,
+        0.10378046733184228
+      ],
+      "throughput_change_percent": -0.06196556696763198,
+      "throughput_ci95_percent": [
+        -0.10367287513752818,
+        -0.020240845749580308
+      ],
+      "measured_seconds_range": [
+        81.0223436569795,
+        81.244906864129
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "input_len": 1024,
+      "output_len": 128,
+      "batch": 32,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.07709101662268349,
+      "latency_ci95_percent": [
+        -0.19146197563213685,
+        0.3463665994601994
+      ],
+      "throughput_change_percent": -0.07703163215433467,
+      "throughput_ci95_percent": [
+        -0.3451710422588062,
+        0.19182925571496917
+      ],
+      "measured_seconds_range": [
+        75.66288757417351,
+        76.27687845844775
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "input_len": 1024,
+      "output_len": 128,
+      "batch": 128,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.07198112562850824,
+      "latency_ci95_percent": [
+        -0.005843250797855757,
+        0.14986607192978346
+      ],
+      "throughput_change_percent": -0.07192935007266867,
+      "throughput_ci95_percent": [
+        -0.14964180962772974,
+        0.005843592253606739
+      ],
+      "measured_seconds_range": [
+        80.90728844702244,
+        81.09278568439186
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "input_len": 1024,
+      "output_len": 128,
+      "batch": 32,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.14816106809756505,
+      "latency_ci95_percent": [
+        -0.08286729476782341,
+        0.3797236146710241
+      ],
+      "throughput_change_percent": -0.14794187583416557,
+      "throughput_ci95_percent": [
+        -0.3782871689592155,
+        0.0829360216053158
+      ],
+      "measured_seconds_range": [
+        75.54290021304041,
+        75.97579400986433
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.067042158263961,
+      "latency_ci95_percent": [
+        -0.23698913168556218,
+        0.3719999942796447
+      ],
+      "throughput_change_percent": -0.06699724186703601,
+      "throughput_ci95_percent": [
+        -0.3706212831276109,
+        0.23755210435497381
+      ],
+      "measured_seconds_range": [
+        75.49269156437367,
+        75.85206913016737
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.7172277247646924,
+      "latency_ci95_percent": [
+        0.46444621086310167,
+        0.9706452695824968
+      ],
+      "throughput_change_percent": -0.7121202012476938,
+      "throughput_ci95_percent": [
+        -0.9613143176325769,
+        -0.46229908030178507
+      ],
+      "measured_seconds_range": [
+        75.58130785543472,
+        76.41252407710999
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "C/A",
+      "paired_repetitions": 10,
+      "latency_change_percent": 0.7380216902902591,
+      "latency_ci95_percent": [
+        0.5542999993902862,
+        0.9220790571355405
+      ],
+      "throughput_change_percent": -0.7326148339097214,
+      "throughput_ci95_percent": [
+        -0.9136544408815827,
+        -0.5512444513995396
+      ],
+      "measured_seconds_range": [
+        75.28477196302265,
+        76.41252407710999
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.42241390612699387,
+      "latency_ci95_percent": [
+        -0.4652585679480157,
+        1.3180028364050707
+      ],
+      "throughput_change_percent": -0.4206370766210206,
+      "throughput_ci95_percent": [
+        -1.3008574976879552,
+        0.4674333416193454
+      ],
+      "measured_seconds_range": [
+        75.58130785543472,
+        76.90824018977582
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.027347842983815873,
+        0.1913674473294158,
+        0.10569425163294843,
+        1.6649314192441311,
+        0.39910932153508494
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.011970316981031712,
+      "latency_ci95_percent": [
+        -0.5812187956343899,
+        0.6086987339317396
+      ],
+      "throughput_change_percent": -0.011968884267645783,
+      "throughput_ci95_percent": [
+        -0.6050160091439957,
+        0.5846166977642127
+      ],
+      "measured_seconds_range": [
+        74.79342375230044,
+        75.3982642525807
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.3374066301043202,
+      "latency_ci95_percent": [
+        -0.3554266574949075,
+        1.0350572193217265
+      ],
+      "throughput_change_percent": -0.33627202599343226,
+      "throughput_ci95_percent": [
+        -1.024453539007631,
+        0.3566944446369506
+      ],
+      "measured_seconds_range": [
+        74.9532737089321,
+        75.77480890415609
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": false,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.3494173357284884,
+      "latency_ci95_percent": [
+        -0.07356623478691232,
+        0.7741913744331805
+      ],
+      "throughput_change_percent": -0.3482006622514604,
+      "throughput_ci95_percent": [
+        -0.7682436979887254,
+        0.07362039453921009
+      ],
+      "measured_seconds_range": [
+        74.79342375230044,
+        75.77480890415609
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.10270758923641113,
+      "latency_ci95_percent": [
+        -0.23886377114928642,
+        0.4454484530845401
+      ],
+      "throughput_change_percent": -0.10260220898106338,
+      "throughput_ci95_percent": [
+        -0.44347300942421247,
+        0.23943569628290529
+      ],
+      "measured_seconds_range": [
+        74.9532737089321,
+        75.53864565584809
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.46581228135549324,
+        0.20230870508284315,
+        0.11484053358219448,
+        0.2252688352780141,
+        0.1870435171113627
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.010921943316119344,
+      "latency_ci95_percent": [
+        -0.09574465691571868,
+        0.07397278816417678
+      ],
+      "throughput_change_percent": 0.010923136334878184,
+      "throughput_ci95_percent": [
+        -0.07391810887808142,
+        0.09583641516261646
+      ],
+      "measured_seconds_range": [
+        75.19737887289375,
+        75.30786835961044
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.04390796501945199,
+      "latency_ci95_percent": [
+        -0.044617251703724936,
+        0.13251158386345935
+      ],
+      "throughput_change_percent": -0.04388869438687311,
+      "throughput_ci95_percent": [
+        -0.13233622303828627,
+        0.044637167581138025
+      ],
+      "measured_seconds_range": [
+        75.17231703549623,
+        75.35739805549383
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.03298122610027848,
+      "latency_ci95_percent": [
+        -0.12721884026799343,
+        0.193438259992298
+      ],
+      "throughput_change_percent": -0.032970352073914924,
+      "throughput_ci95_percent": [
+        -0.1930647988048323,
+        0.1273808927624889
+      ],
+      "measured_seconds_range": [
+        75.17231703549623,
+        75.35739805549383
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.047330729784519174,
+      "latency_ci95_percent": [
+        -0.0124961016712687,
+        0.10719335821115332
+      ],
+      "throughput_change_percent": -0.04730833840270424,
+      "throughput_ci95_percent": [
+        -0.10707857708844748,
+        0.012497663391992694
+      ],
+      "measured_seconds_range": [
+        75.19737887289375,
+        75.3485201280564
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.046758401117363846,
+        0.106661163389421,
+        0.07819652682934386,
+        0.017535266703827546,
+        0.0226192608751008
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.13467687911500673,
+      "latency_ci95_percent": [
+        -0.24152984640132494,
+        0.5123023463191951
+      ],
+      "throughput_change_percent": -0.13449574444384726,
+      "throughput_ci95_percent": [
+        -0.5096911864122232,
+        0.24211462548437251
+      ],
+      "measured_seconds_range": [
+        75.7773388531059,
+        76.47062086872756
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.5994002994873209,
+      "latency_ci95_percent": [
+        0.3295164532842211,
+        0.8700101263690507
+      ],
+      "throughput_change_percent": -0.5958288992806009,
+      "throughput_ci95_percent": [
+        -0.8625062347858493,
+        -0.3284342085289045
+      ],
+      "measured_seconds_range": [
+        75.90378282219172,
+        76.67134127113968
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.734884432219071,
+      "latency_ci95_percent": [
+        0.4926469271298559,
+        0.9777058507653015
+      ],
+      "throughput_change_percent": -0.7295232792107372,
+      "throughput_ci95_percent": [
+        -0.9682393183008638,
+        -0.4902318151566736
+      ],
+      "measured_seconds_range": [
+        75.7773388531059,
+        76.67134127113968
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "off",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.11003277546879758,
+      "latency_ci95_percent": [
+        -0.6806021176072656,
+        0.9069615401095031
+      ],
+      "throughput_change_percent": -0.10991183642461086,
+      "throughput_ci95_percent": [
+        -0.8988096819752075,
+        0.6852660528743724
+      ],
+      "measured_seconds_range": [
+        75.88746149558574,
+        76.76467778719962
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        1.0696478404907728,
+        0.07838482214961306,
+        0.7244179171296494,
+        0.156221151559377,
+        0.021502652435922975
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.004049015277507682,
+      "latency_ci95_percent": [
+        -0.16512588706392423,
+        0.1735105924691513
+      ],
+      "throughput_change_percent": -0.004048851338898407,
+      "throughput_ci95_percent": [
+        -0.173210054677065,
+        0.16539900363587284
+      ],
+      "measured_seconds_range": [
+        77.37889856379479,
+        77.7254965333268
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.24755910212351687,
+      "latency_ci95_percent": [
+        0.011936306219240316,
+        0.4837370127870933
+      ],
+      "throughput_change_percent": -0.24694776046499559,
+      "throughput_ci95_percent": [
+        -0.4814082628371348,
+        -0.011934881635221434
+      ],
+      "measured_seconds_range": [
+        77.4485987406224,
+        77.85309913940728
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.2516181411068932,
+      "latency_ci95_percent": [
+        -0.08318888001577111,
+        0.587547052931798
+      ],
+      "throughput_change_percent": -0.2509866132561908,
+      "throughput_ci95_percent": [
+        -0.5841151018650602,
+        0.0832581415312329
+      ],
+      "measured_seconds_range": [
+        77.37889856379479,
+        77.85309913940728
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "0",
+      "cpu_list": "0,2,4,6,8,10",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.031368819875728725,
+      "latency_ci95_percent": [
+        -0.057724835961451976,
+        0.12054189835460338
+      ],
+      "throughput_change_percent": -0.03135898293285766,
+      "throughput_ci95_percent": [
+        -0.12039676980272558,
+        0.057758176774249236
+      ],
+      "measured_seconds_range": [
+        77.4485987406224,
+        77.62265259493142
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.08837290915448826,
+        0.014304157095812453,
+        0.010461990870203053,
+        0.04980373053052878,
+        0.12222012245526326
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.27058799098651914,
+      "latency_ci95_percent": [
+        -0.24565350604476588,
+        0.789501103768134
+      ],
+      "throughput_change_percent": -0.2698577882188571,
+      "throughput_ci95_percent": [
+        -0.7833168089157427,
+        0.246258448557579
+      ],
+      "measured_seconds_range": [
+        74.74499264638871,
+        75.30829148646444
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.15685365438156504,
+      "latency_ci95_percent": [
+        -0.5807249257935846,
+        0.2688247802248586
+      ],
+      "throughput_change_percent": 0.15710007158488198,
+      "throughput_ci95_percent": [
+        -0.2681040501013996,
+        0.5841170390350687
+      ],
+      "measured_seconds_range": [
+        74.67817388754338,
+        75.46194704342633
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.1133099094527778,
+      "latency_ci95_percent": [
+        -0.589578252957135,
+        0.8211678905212729
+      ],
+      "throughput_change_percent": -0.11318166341244801,
+      "throughput_ci95_percent": [
+        -0.8144796452000583,
+        0.5930748935532738
+      ],
+      "measured_seconds_range": [
+        74.67817388754338,
+        75.46194704342633
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "off",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.4341812552645555,
+      "latency_ci95_percent": [
+        -1.160408601101003,
+        0.29738207132996863
+      ],
+      "throughput_change_percent": 0.4360746094778765,
+      "throughput_ci95_percent": [
+        -0.2965003324996808,
+        1.1740321713975936
+      ],
+      "measured_seconds_range": [
+        74.53077936917543,
+        75.30829148646444
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.8466212935041906,
+        0.8452725204187828,
+        0.33141148590527525,
+        0.6915847879391257,
+        0.5509190979841483
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.01350678926103681,
+      "latency_ci95_percent": [
+        -0.12621549466537088,
+        0.09932910920338643
+      ],
+      "throughput_change_percent": 0.013508613841040407,
+      "throughput_ci95_percent": [
+        -0.09923054438758856,
+        0.12637499949611827
+      ],
+      "measured_seconds_range": [
+        75.21238018106669,
+        75.35897662397474
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.012980049791240124,
+      "latency_ci95_percent": [
+        -0.10627553227741014,
+        0.13237800210316955
+      ],
+      "throughput_change_percent": -0.012978365192975986,
+      "throughput_ci95_percent": [
+        -0.13220299442043523,
+        0.1063885973255003
+      ],
+      "measured_seconds_range": [
+        75.22514883149415,
+        75.34165342058986
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.0005284926577675778,
+      "latency_ci95_percent": [
+        -0.10242673692491945,
+        0.10147369059254041
+      ],
+      "throughput_change_percent": 0.000528495450827232,
+      "throughput_ci95_percent": [
+        -0.1013708258743416,
+        0.10253175685778065
+      ],
+      "measured_seconds_range": [
+        75.21238018106669,
+        75.35897662397474
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 1,
+      "async": "on",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.010790450971580068,
+      "latency_ci95_percent": [
+        -0.08053688508281069,
+        0.1022012610764789
+      ],
+      "throughput_change_percent": -0.010789286758882168,
+      "throughput_ci95_percent": [
+        -0.10209691674005035,
+        0.08060179926125641
+      ],
+      "measured_seconds_range": [
+        75.22514883149415,
+        75.34165342058986
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.049758635021102116,
+        0.09408930650829372,
+        0.019750159012543733,
+        0.10229720694967526,
+        0.007240366106453511
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "B/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.09361890594572174,
+      "latency_ci95_percent": [
+        -0.25345874546842395,
+        0.44190424731679306
+      ],
+      "throughput_change_percent": -0.0935313429257583,
+      "throughput_ci95_percent": [
+        -0.43996004519059895,
+        0.2541027912152384
+      ],
+      "measured_seconds_range": [
+        77.11375824641436,
+        77.52692371699959
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "C/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.17565433065530647,
+      "latency_ci95_percent": [
+        -0.09457046792553549,
+        0.4466100348747115
+      ],
+      "throughput_change_percent": -0.17534632723786814,
+      "throughput_ci95_percent": [
+        -0.44462429814171933,
+        0.09465998831942743
+      ],
+      "measured_seconds_range": [
+        77.20764945168048,
+        77.65861159097403
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "C/A",
+      "paired_repetitions": 5,
+      "latency_change_percent": 0.2694376822636283,
+      "latency_ci95_percent": [
+        0.055966301724738196,
+        0.4833645082096594
+      ],
+      "throughput_change_percent": -0.2687136663889842,
+      "throughput_ci95_percent": [
+        -0.4810393347947339,
+        -0.05593499697556113
+      ],
+      "measured_seconds_range": [
+        77.11375824641436,
+        77.65861159097403
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "49db0305ee2613e8ca24a1ed70d937e2d0e85c280c692aa8f297cb9e7176c436",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ]
+    },
+    {
+      "gpu": "1",
+      "cpu_list": "12,14,16,18,20,22",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_len": 32,
+      "output_len": 256,
+      "batch": 512,
+      "async": "on",
+      "comparison": "B-repeat/B",
+      "paired_repetitions": 5,
+      "latency_change_percent": -0.0053760172865396,
+      "latency_ci95_percent": [
+        -0.2506932805104896,
+        0.24054456401163948
+      ],
+      "throughput_change_percent": 0.005376306317696616,
+      "throughput_ci95_percent": [
+        -0.23996733563037706,
+        0.25132333121419875
+      ],
+      "measured_seconds_range": [
+        77.20764945168048,
+        77.52692371699959
+      ],
+      "measurement_stage": "repeated",
+      "rules_out_1pct_regression": true,
+      "sources": [
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02",
+        "7bd3b99e46e500edcd455a7c1207903e67322a6fd9e9d20938a23326daf8dc02"
+      ],
+      "noise_abs_changes_percent": [
+        0.07714074667143356,
+        0.05033703133783263,
+        0.28333248172947023,
+        0.022927328566280103,
+        0.2596987524020933
+      ]
+    }
+  ]
+}

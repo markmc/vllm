@@ -1,0 +1,101 @@
+{
+  "description": "Counts-only baseline versus counts plus nonblocking GPU timing; async TP1 BF16",
+  "baseline_revision": "3d478485ba9854cb610fde29d8047fece28e9fba",
+  "candidate_revision": "b43a653a803b0cd52731a0bcd323bff91557629f",
+  "collection": {
+    "baseline": "on",
+    "candidate": "on"
+  },
+  "repeats": 5,
+  "devices": [
+    {
+      "gpu": "0",
+      "server_cpus": "0,2,4,6,8,10",
+      "client_cpus": "24,26",
+      "port": 18080,
+      "uuid": "GPU-841122ef-18ae-a441-a934-c646ec979a3a"
+    },
+    {
+      "gpu": "1",
+      "server_cpus": "12,14,16,18,20,22",
+      "client_cpus": "28,30",
+      "port": 18081,
+      "uuid": "GPU-aca0d80a-9ca1-b33b-c558-8033c2b5bedc"
+    }
+  ],
+  "models": [
+    {
+      "name": "small",
+      "model": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.6,
+      "max_num_seqs": 64,
+      "max_num_batched_tokens": 8192,
+      "cases": [
+        {
+          "name": "matched-short",
+          "input_len": 32,
+          "output_len": 256,
+          "concurrency": 64,
+          "num_prompts": 3584,
+          "num_warmups": 128
+        }
+      ],
+      "max_model_len": 2048
+    },
+    {
+      "name": "qwen38",
+      "model": "Qwen/Qwen3.8-27B",
+      "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+      "dtype": "bfloat16",
+      "gpu_memory_utilization": 0.9,
+      "max_num_seqs": 64,
+      "max_num_batched_tokens": 8192,
+      "language_model_only": true,
+      "hf_cache": "/dev/shm/iteration-stats-hf",
+      "cases": [
+        {
+          "name": "matched-short",
+          "input_len": 32,
+          "output_len": 256,
+          "concurrency": 64,
+          "num_prompts": 320,
+          "num_warmups": 64,
+          "estimated_duration_seconds": [
+            76.6835751151666,
+            76.8317885720171
+          ]
+        },
+        {
+          "name": "production",
+          "input_len": 1024,
+          "output_len": 128,
+          "concurrency": 64,
+          "num_prompts": 192,
+          "num_warmups": 64,
+          "estimated_duration_seconds": [
+            71.07608682336286,
+            70.92537905601785
+          ]
+        }
+      ],
+      "max_model_len": 2048
+    }
+  ],
+  "calibration": {
+    "concurrency": 64,
+    "selection": "Highest validated throughput in the 32/64 sweep; GPU busy, not a proven global throughput optimum",
+    "warm_cache_minutes_per_gpu": 79.9877990205617,
+    "small_block_seconds": 189.43307503219694,
+    "large_block_seconds": [
+      290.49371909117326,
+      290.30953694786876
+    ],
+    "small_pre_server_allowance_seconds": 15,
+    "small_sequence_limit_calibration": 128,
+    "planned_small_sequence_limit": 64,
+    "budget_minutes": 110,
+    "raw_evidence": ".cache/iteration_stats/qwen38-preparation-20261015"
+  }
+}

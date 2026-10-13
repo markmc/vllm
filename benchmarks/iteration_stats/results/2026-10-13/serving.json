@@ -1,0 +1,322 @@
+[
+  {
+    "gpu": "0",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "output_throughput",
+    "paired_repetitions": 5,
+    "change_percent": -0.18804846175600884,
+    "ci95_percent": [
+      -0.9022342417130127,
+      0.5312843699472161
+    ],
+    "duration_range": [
+      72.39181220997125,
+      73.45826694741845
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "median_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": -0.19222943734561118,
+    "ci95_percent": [
+      -14.99764478022011,
+      17.19194178715434
+    ],
+    "duration_range": [
+      72.39181220997125,
+      73.45826694741845
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "p99_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": 7.756767682917504,
+    "ci95_percent": [
+      -11.515818841313514,
+      31.22708295900133
+    ],
+    "duration_range": [
+      72.39181220997125,
+      73.45826694741845
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "median_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": -0.34515569146390745,
+    "ci95_percent": [
+      -2.5129940498186607,
+      1.8708893289187658
+    ],
+    "duration_range": [
+      72.39181220997125,
+      73.45826694741845
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "p99_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": -2.0879212167034154,
+    "ci95_percent": [
+      -4.061776946104436,
+      -0.07345491190847318
+    ],
+    "duration_range": [
+      72.39181220997125,
+      73.45826694741845
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "output_throughput",
+    "paired_repetitions": 5,
+    "change_percent": -0.39725562942230264,
+    "ci95_percent": [
+      -1.6388586516150228,
+      0.8600200257186053
+    ],
+    "duration_range": [
+      73.00689866300672,
+      74.34642028808594
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "median_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": 4.529705586812348,
+    "ci95_percent": [
+      -11.621087918472975,
+      23.631973880673275
+    ],
+    "duration_range": [
+      73.00689866300672,
+      74.34642028808594
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "p99_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": -6.799070841699159,
+    "ci95_percent": [
+      -24.59810656979672,
+      15.201526126280912
+    ],
+    "duration_range": [
+      73.00689866300672,
+      74.34642028808594
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "median_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": -0.07453099793255727,
+    "ci95_percent": [
+      -4.047782216812842,
+      4.063247165848629
+    ],
+    "duration_range": [
+      73.00689866300672,
+      74.34642028808594
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "on",
+    "concurrency": 512,
+    "metric": "p99_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": -1.3115712762884688,
+    "ci95_percent": [
+      -6.359875027775584,
+      4.008895405084083
+    ],
+    "duration_range": [
+      73.00689866300672,
+      74.34642028808594
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "output_throughput",
+    "paired_repetitions": 5,
+    "change_percent": 0.38328426946357036,
+    "ci95_percent": [
+      -0.020205168192505757,
+      0.7884020733967918
+    ],
+    "duration_range": [
+      73.64824981801212,
+      74.85757292062044
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "median_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": -6.026875413168998,
+    "ci95_percent": [
+      -18.347655358843728,
+      8.15302589805714
+    ],
+    "duration_range": [
+      73.64824981801212,
+      74.85757292062044
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "p99_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": -5.09915039506198,
+    "ci95_percent": [
+      -15.131080382679185,
+      6.1186037992288025
+    ],
+    "duration_range": [
+      73.64824981801212,
+      74.85757292062044
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "median_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": 2.6572265363300014,
+    "ci95_percent": [
+      -4.986269256090233,
+      10.915612697450875
+    ],
+    "duration_range": [
+      73.64824981801212,
+      74.85757292062044
+    ]
+  },
+  {
+    "gpu": "1",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "p99_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": 2.539847251837557,
+    "ci95_percent": [
+      -2.5122611638587666,
+      7.8537711506773595
+    ],
+    "duration_range": [
+      73.64824981801212,
+      74.85757292062044
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "output_throughput",
+    "paired_repetitions": 5,
+    "change_percent": 0.1080941372809021,
+    "ci95_percent": [
+      -0.5747075743829477,
+      0.7955849795077812
+    ],
+    "duration_range": [
+      73.9817100353539,
+      74.7772069433704
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "median_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": 4.315820375982189,
+    "ci95_percent": [
+      -9.150371299010782,
+      19.77803912142675
+    ],
+    "duration_range": [
+      73.9817100353539,
+      74.7772069433704
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "p99_ttft_ms",
+    "paired_repetitions": 5,
+    "change_percent": -11.045998789502786,
+    "ci95_percent": [
+      -18.90097589419943,
+      -2.430215177013707
+    ],
+    "duration_range": [
+      73.9817100353539,
+      74.7772069433704
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "median_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": 1.7828108044473803,
+    "ci95_percent": [
+      -2.526430493528799,
+      6.282560777320816
+    ],
+    "duration_range": [
+      73.9817100353539,
+      74.7772069433704
+    ]
+  },
+  {
+    "gpu": "0",
+    "async": "off",
+    "concurrency": 512,
+    "metric": "p99_itl_ms",
+    "paired_repetitions": 5,
+    "change_percent": -0.42944847695513605,
+    "ci95_percent": [
+      -6.559858333542287,
+      6.103164590580609
+    ],
+    "duration_range": [
+      73.9817100353539,
+      74.7772069433704
+    ]
+  }
+]
