@@ -24,8 +24,8 @@ would preserve this ambiguity.
 This phase covers the existing iteration statistics and their collection,
 semantics, timing, delivery, and frontend consumption. The core quantities are
 scheduled prefill/decode request counts, scheduled input-token counts, and the
-batch execution interval. It also clarifies the separate role of frontend
-request-output accounting currently named `IterationStats`.
+worker's GPU interval through output readiness. It also clarifies the separate
+role of frontend request-output accounting currently named `IterationStats`.
 
 The longer-term objective is to support orchestrators such as NVIDIA Dynamo,
 as expressed in
@@ -44,7 +44,7 @@ definitions and export mechanisms belong to follow-on workstreams.
 - Unify console and Prometheus observations around shared scheduled-batch facts,
   while preserving request-level prompt, output-token, and lifecycle accounting.
 - Clarify frontend data-model names and preserve one observation owner for each
-  engine's iteration record, including asynchronously delivered durations.
+  engine's iteration record, including the duration carried by its model output.
 - Provide a foundation for orchestrator enhancements without requiring new
   context/queue metrics or an external reporting protocol in this phase.
 
@@ -61,9 +61,9 @@ definitions and export mechanisms belong to follow-on workstreams.
    implementation benchmarks show acceptable overhead.
 4. Correct the existing `vllm:iteration_tokens_total` histogram to observe the
    scheduled inputs of each eligible batch, following and crediting #51261.
-5. Replace the CPU result-wait measurement in `elapsed_ms` with the worker's
-   batch execution interval, including asynchronous duration delivery. Sequence
-   this work after the request/token counts.
+5. Replace the CPU result-wait measurement in `elapsed_ms` with the worker's GPU
+   interval through output readiness, returned with the corresponding model
+   output. Sequence this work after the request/token counts.
 6. Clarify the semantics of frontend `IterationStats` and rename the struct or
    its fields where necessary to express request-output accounting accurately.
 7. Deliver each engine-global iteration record to one frontend for observation,
@@ -80,9 +80,11 @@ export should follow the existing
 
 Prefer **iteration metrics** to **forward-pass metrics** for this shared
 collection. One scheduled batch can involve multiple model invocations through
-microbatching and speculative drafting. Its execution interval also includes
-sampling and CPU-submission gaps inside the timing boundaries. The scheduled
-batch is the unit that connects these activities and their metrics.
+microbatching and speculative drafting. Its measured interval extends through
+output readiness, including sampling, result transfer, and CPU-submission gaps
+inside the timing boundaries. Postprocessing and drafting contribute when they
+precede that boundary in the runner's execution order. The scheduled batch is
+the unit that connects these activities and their metrics.
 
 This is a terminology choice in favor of the scheduled-batch contract. FPM in
 [PR #52061](https://github.com/vllm-project/vllm/pull/52061) remains a source of
@@ -106,11 +108,12 @@ histograms must consume the shared iteration record rather than reconstructing
 it from the frontend accumulator.
 
 Engine-global scheduler and iteration details already go to one frontend per
-engine update. Preserve that ownership for new iteration records, including
-records completed by later worker timings and stats-only deliveries. Each record
-contributes at most one observation per instrument. Frontend request-output
-accumulators remain local to the frontends handling those requests; this routing
-rule applies to the engine-global iteration records.
+engine update. Preserve that ownership for iteration records and their model
+output durations, including stats-only deliveries for batches with no
+per-request outputs. Each record contributes at most one observation per
+instrument. Frontend request-output accumulators remain local to the frontends
+handling those requests; this routing rule applies to the engine-global
+iteration records.
 
 See [frontend request-output accounting](../../vllm/v1/metrics/stats.py),
 [frontend output handling](../../vllm/v1/engine/async_llm.py), and
@@ -291,8 +294,8 @@ Existing console logging also indexes dummy execution. Retain those execution
 records and their indices, with an explicit classification as described below.
 Consumers that filter them out can observe gaps in the indices; the index
 identifies an iteration and does not prescribe the number of histogram
-observations. Preserve the identity when associating later timing with the same
-execution.
+observations. Use the existing batch/future association to attach the duration
+from a model output to the same execution's scheduling snapshot.
 
 See [EngineCore scheduling, capture, and output delivery](../../vllm/v1/engine/core.py).
 
@@ -359,8 +362,9 @@ With a draft model, scheduled speculative positions count its proposed tokens
 as inputs for verification by the target model. The draft model's own prefill
 and generation executions do not add to these four counts or create separate
 iteration records. Separate draft-model workload accounting is not defined by
-this design. The execution-duration scope defined below includes drafting for
-the next batch, without adding draft-model work to these four counts.
+this design. Drafting contributes to the duration when it precedes the model
+output's readiness boundary, without adding draft-model work to these four
+counts. Work after that boundary is outside the measured interval.
 
 ### Relationship to console logging and FPM
 
@@ -412,8 +416,10 @@ The desired default is collection with `log_stats`, independently of verbose
 iteration console logging. That default is conditional on acceptable measured
 overhead. New per-iteration collection remains opt-in until benchmarking
 justifies enabling it with `log_stats`. The same gate applies separately to
-request/token counts and execution timing; timing adds a Prometheus histogram
-when enabled. See the collection-enablement decision below.
+request/token counts and execution timing. A separate consumer change adds a
+duration histogram once worker timings are available. It observes eligible
+records with a duration; request/token observations do not require a duration.
+See the collection-enablement decision below.
 
 Resolve collection requirements before starting EngineCore so the shared stats
 are available to the frontend loggers.
@@ -478,11 +484,14 @@ text and documentation to describe scheduled target-model inputs. Its `_sum`,
 Request-level prompt and generated-output counters retain their separate
 definitions.
 
-## Decision: implement execution timing after the counts
+## Decision: GPU timing through model-output readiness
 
-Implement the shared request/token counts, console integration, and Prometheus
-observations first. Add worker-side execution timing in a subsequent change,
-with overhead benchmarking before deciding how broadly to enable it.
+Implement worker-side GPU timing on top of the request/token count collector.
+Each model output carries its own duration, and EngineCore includes it in the
+existing iteration details. The initial goal is a useful correlation between
+scheduled batch composition and the interval required to make its output
+available. Timing instrumentation and delivery form one small change; histogram
+observation and overhead benchmarking are separate steps.
 
 ### Collection enablement and overhead
 
@@ -493,75 +502,120 @@ logging. Benchmark counts first, then worker timing, including their consumer
 and delivery costs, so timing overhead does not prevent enabling inexpensive
 counts.
 
-Choose the final activation policy from implementation benchmark results; this
-is an implementation acceptance gate, rather than an open design decision.
-One possible outcome is that counts provide sufficient routine operational
-visibility and become available with `log_stats`, while execution timing remains
-enabled only by the iteration-logging option. In that case the option enables
-both execution-duration console logging and a Prometheus duration histogram.
-Collection requirements must remain independent of external FPM publication.
+**For the initial implementation, enable timing directly whenever
+`enable_logging_iteration_details` is enabled.** Use the existing option as the
+collection switch. Device, executor, and runner compatibility qualification
+follows the initial implementation review. A support matrix and additional
+activation policy are not prerequisites for that review.
 
-The agreed interpretation of **scheduled batch execution time** is the elapsed
-interval on the worker's CUDA stream from immediately before target-model
-execution through sampling and speculative drafting for the next batch. CPU
-delays that leave the stream idle inside these boundaries contribute to the
-duration. Work queued before the start event does not. This is an elapsed
-interval, rather than a sum of kernel execution times or independent work on
-other streams.
+Choose broader activation from implementation benchmark results. One possible
+outcome is that counts become available with `log_stats`, while execution
+timing remains enabled only by the iteration-logging option. Benchmarking is
+deferred for the initial timing draft. Collection requirements remain
+independent of external publication.
 
-Use a pair of CUDA events and collect completed durations without adding
-blocking GPU synchronization for telemetry. Request outputs can become
-available before drafting and the end event finish.
+### Measurement boundaries
 
-### Asynchronous iteration-record delivery
+**Measure a CUDA-event interval from immediately before the worker calls
+`model_runner.execute_model()` until the corresponding model output becomes
+CPU-readable.** Record the start event on the model stream. The start is
+ordered after earlier work on that stream, even when the CPU submits batches
+ahead of GPU completion.
 
-**Send request outputs as soon as they are available. When timing is enabled,
-deliver the complete iteration record once its duration is available.**
+For asynchronous outputs, use the existing output-copy completion event as the
+end event, with timing enabled. The copy stream already waits for the model
+stream before transferring sampled tokens and other results. After the existing
+copy wait, both timing events have completed and their elapsed time can be read
+while constructing the concrete `ModelRunnerOutput`.
 
-EngineCore retains the scheduling snapshot and associates the worker's completed
-duration with it using the engine-local iteration identity. Include the complete
-record in a later `EngineCoreOutputs` when necessary. Only telemetry is delayed;
-request-output delivery does not wait for the timing event. When only counts
-are collected, their record can accompany the corresponding batch's output
-without waiting for a duration.
+Returning `None` from `execute_model()` means sampling is still pending.
+Returning an `AsyncModelRunnerOutput` hands off an output whose copies may still
+be running. Neither return defines the timing endpoint. The end timestamp is
+the result-copy completion event, rather than the CPU time at which a thread
+later retrieves, serializes, or sends the output. The synchronous MRV1 path
+records its end event before the blocking result read. That read establishes
+event completion without another GPU wait, but its duration excludes the result
+transfer itself. This initial boundary difference is part of runner
+qualification.
 
-Allow completed records to travel in a stats-only packet when no later request
-outputs are available, and allow a packet to carry multiple ready iteration
-records. Reuse the existing single-frontend stats routing. A record retains the
-identity, activity kind, and batch composition of its originating iteration,
-regardless of which output packet carries it. Do not mistake it for the packet's
-current request-output iteration or regenerate its scheduling snapshot later.
+This interval includes target execution, sampling, output transfer, and any CPU
+submission gaps or stream waits between the two events. Copy-stream queuing and
+resource contention can contribute. It measures elapsed output-readiness time;
+it is not a sum of kernel execution times or an inventory of all GPU work.
 
-Console logging and histograms consume each delivered iteration record once.
-In the timing-enabled path, count observations may therefore arrive later too;
-do not observe the counts again merely because their duration became available.
-Preserve the existing activity filtering for scheduled-request histograms.
+The endpoint follows the runner's existing execution order. MRV2 starts output
+copying before postprocessing and speculative drafting, allowing those
+operations to continue beyond the end event. MRV1 can run drafting before its
+output copy, so drafting can contribute to its duration. Work after the endpoint
+is outside this interval; it is not carried forward into the next iteration's
+duration. Consistent full-step cost accounting across runners is follow-on
+qualification, rather than a requirement of this first measurement.
+
+### Delivery with the model output
+
+Add one optional scalar, such as `ModelRunnerOutput.iteration_elapsed_ms`, for
+that output's own batch. Keep CUDA events in the worker and send only the
+resolved duration to EngineCore. Event references belong to the batch and
+survive deferred sampling and queued output processing. Start with per-batch
+event allocation; consider pooling after measuring its cost.
+
+EngineCore already retains each scheduling snapshot with its model-output
+future, including under async scheduling. When it consumes that future, copy
+the duration into `SchedulerIterationDetails.elapsed_ms` and attach the details
+to `SchedulerStats` through the existing single-frontend route. Counts retain
+their scheduling-time values. Batches with no per-request outputs still return
+a model output and use the existing stats-only frontend packet.
+
+Normal output completion establishes timing readiness. The timing path adds no
+GPU completion wait, independent timing RPC, polling loop, or shutdown drain.
+The duration and counts are observed together in the existing iteration record,
+once, using its existing iteration index. A separate timing identity or pending
+record join is unnecessary.
+
+### Initial constraints and qualification
+
+The following choices keep the first implementation focused:
+
+| Concern | Initial contract |
+| --- | --- |
+| Purpose | Correlate scheduled request/token counts with elapsed GPU output-readiness time. |
+| Endpoint | Use the existing result-ready boundary, accepting differences caused by runner execution order. |
+| Output delivery | Read timing after the output's existing completion wait and include it in the same model output. |
+| Availability | Duration is optional; counts and activity classification remain reportable when no duration is available. |
+| Non-request activity | Preserve existing dummy records. Dummy execution without a timed model output has no duration in this first implementation. |
+| Lifecycle | Timing follows normal model-output delivery, with no independent final-record flush or durability guarantee. |
+| Enablement | Enable instrumentation directly with iteration-detail logging; qualify unsupported or misleading configurations afterward. |
+| Overhead | Begin with per-batch events and minimal bookkeeping. Defer pooling, overhead benchmarks, and broader defaults. |
+
+These constraints support a small instrumentation and propagation change.
+Qualification can later establish which configurations produce comparable,
+useful timings and whether additional execution scopes are needed. Missing
+durations do not delay or suppress the scheduled counts.
 
 ### Existing `elapsed_ms`
 
-`SchedulerIterationDetails.elapsed_ms` is an EngineCore CPU interval around
-result retrieval, including the separate sampling call on the nonqueued path.
-It starts after execution submission. It can approximate batch latency when
-only one batch is outstanding and waiting for its result dominates the interval,
-but it excludes work before the timer starts and can miss drafting that continues
-after outputs become available.
+The CPU measurement being replaced in `SchedulerIterationDetails.elapsed_ms`
+surrounds EngineCore result retrieval, including the separate sampling call on
+the nonqueued path. It starts after execution submission. It can approximate
+batch latency when only one batch is outstanding and waiting for its result
+dominates the interval, but it excludes work before the timer starts.
 
 With queued execution, it measures only the remaining result wait when
 EngineCore retrieves the batch. Substantial GPU execution can therefore produce
 an almost-zero `elapsed_ms`. Async scheduling and pipeline parallelism can both
 enable this queue. Do not interpret this field as the agreed scheduled batch
-execution time.
+output-readiness interval.
 
-**Replace this CPU result-wait measurement with the worker execution duration
-in iteration console logging when worker timing is implemented.** There is no
-requirement to preserve both timing quantities. The field name is an
-implementation choice; retaining `elapsed_ms` does not require retaining its
-old measurement. When execution timing is disabled or unavailable, omit the
-execution duration rather than substituting the CPU wait or a zero value.
+**Replace this CPU result-wait measurement with the worker's GPU duration in
+iteration console logging.** There is no requirement to preserve both timing
+quantities. The field name is an implementation choice; retaining `elapsed_ms`
+does not require retaining its old measurement. When execution timing is
+disabled or unavailable, omit the execution duration rather than substituting
+the CPU wait or a zero value.
 
-See [EngineCore timing boundaries](../../vllm/v1/engine/core.py),
-[batch concurrency](../../vllm/config/vllm.py), and
-[FPM's event timer](../../vllm/v1/metrics/forward_pass_metrics.py).
+See [EngineCore iteration attachment](../../vllm/v1/engine/core.py),
+[MRV2 output copying](../../vllm/v1/worker/gpu/async_utils.py), and
+[MRV1 asynchronous outputs](../../vllm/v1/worker/gpu_model_runner.py).
 
 ## Related issues and pull requests
 
@@ -621,8 +675,8 @@ phase does not adopt FPM's existing definitions for those additional quantities.
   through the shared collection and existing frontend/exporter architecture.
 
 These workstreams can build on the iteration identity, shared batch record,
-asynchronous duration association, activity classification, and observation
-ownership established here. They do not block the current implementation.
+model-output duration, activity classification, and observation ownership
+established here. They do not block the current implementation.
 
 There are no remaining open design decisions for the current phase. Default
 enablement is determined by implementation overhead benchmarks, as agreed above.
@@ -630,8 +684,9 @@ enablement is determined by implementation overhead benchmarks, as agreed above.
 ## Implementation sequencing
 
 Build small, independently reviewable changes. Start with the count-collection
-foundation and implement execution timing last. Keep unrelated refactoring out
-of the collection and metric changes.
+foundation; histogram consumers, frontend naming, and worker timing can then
+advance separately. Keep unrelated refactoring out of the collection and metric
+changes.
 
 ### 1. Efficient request/token count collection and semantics
 
@@ -644,7 +699,7 @@ observation ownership.
 Benchmark collection enabled versus disabled with verbose iteration logging
 off, including the cost of delivery. Use that evidence to determine whether
 collection can be enabled with `log_stats` by default. Do not include histogram
-instruments, the frontend struct rename, or asynchronous GPU timing delivery in
+instruments, the frontend struct rename, or GPU timing instrumentation in
 this PR.
 
 ### 2. Phase-aware request/token histograms
@@ -680,17 +735,27 @@ working name. Clarify its existing request-output accounting responsibility and
 update names and consumers consistently. Keep batch histogram accounting
 changes in the dedicated metric fixes.
 
-### 4. Worker execution timing and asynchronous iteration delivery
+### 4. GPU output-readiness timing in the existing iteration record
 
-Implement CUDA-event execution timing and asynchronous delivery of completed
-iteration records together. Delayed telemetry delivery is required to report
-the agreed execution interval without delaying request outputs. Include
-replacing the console `elapsed_ms` measurement and adding the execution-duration
-histogram, using the timing and delivery contract above.
+Build the timing change directly on the count-collection foundation at
+`a33a88263f41d0e99dc0e4568f9df5e2a7833ff0`. It does not depend on the histogram
+or frontend naming changes. Instrument the worker start boundary and existing
+output-completion boundary, return one duration in `ModelRunnerOutput`, and
+replace the CPU timing in `capture_iteration_details()` with that value. Keep
+the existing iteration-details payload and frontend routing.
 
-Build on the shared count collector and single-frontend route. Benchmark this
-stage separately, including worker instrumentation, pending-record association,
-delivery, and frontend duration observation, before choosing timing enablement.
+Enable the code path with `enable_logging_iteration_details`. Keep the initial
+review focused on instrumentation, event ownership, and duration propagation;
+defer the configuration support matrix and overhead benchmarking.
+
+Keep tests proportional to this change. Replace the CPU-sleep timing assertion
+with supplied-duration propagation, extend existing output tests to check that
+overlapping batches retain their own timings, and verify that disabled logging
+allocates no timing events. Reuse serialization coverage and existing fixtures.
+Validate with small GPU runs with async scheduling enabled and disabled.
+
+Add a duration histogram as a separate consumer change. Benchmark worker
+instrumentation and frontend observation before choosing broader enablement.
 
 The sequence establishes reliable scheduled-batch facts first, with separate
 overhead evidence for collection, histogram observation, and worker timing.
@@ -772,8 +837,8 @@ exclude startup and warmup from results.
 
 Record batch latency and output-token throughput. For serving, also record
 median and p99 inter-token latency and TTFT. Use benchmark wall-clock
-measurements, not the existing `elapsed_ms` field, which is especially
-misleading under async scheduling.
+measurements for end-to-end performance. The worker's `elapsed_ms` interval
+describes GPU output readiness and excludes scheduling and frontend processing.
 
 ### GPU allocation and repetition
 
@@ -829,6 +894,13 @@ profiling uses phases recorded in the existing metadata pass instead.
 
 New semantic tests remain deferred for the initial implementation-direction
 review. Full collection overhead comparisons remain planned; initial pilot
-runs do not yet establish acceptable overhead. Histograms, the frontend rename,
-and worker execution timing remain
-subsequent chunks. Default enablement still requires benchmark evidence.
+runs do not yet establish acceptable overhead. Histograms and the frontend
+rename remain subsequent chunks. Default enablement still requires benchmark
+evidence.
+
+A GPU timing draft carries `ModelRunnerOutput.iteration_elapsed_ms` through the
+existing iteration-details route and removes the EngineCore CPU measurement.
+Async outputs reuse their copy-completion event; synchronous MRV1 records its
+end marker before the existing blocking result read. Missing durations are
+omitted from console output. Broader compatibility qualification and timing
+overhead benchmarks remain deferred.
