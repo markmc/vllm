@@ -6,8 +6,8 @@ overhead measurements and do not establish a new enablement recommendation.
 
 ## Comparison and models
 
-The frozen baseline is `3d478485ba`, containing count collection. The frozen
-candidate is `b43a653a80`, adding nonblocking GPU iteration timing. Both enable
+The frozen baseline is `a33a88263f`, containing count collection. The frozen
+candidate is `5cdcb87fec`, adding nonblocking GPU iteration timing. Both enable
 iteration details with ordinary statistics enabled and WARNING logging. The
 next campaign therefore measures the incremental timing change, including its
 delivery. It does not isolate the original count-collection cost.
@@ -57,8 +57,11 @@ offline snapshot missing README, license or Git metadata even when all weights
 are present. Download and initial compatibility work are one-time preparation,
 outside the recurring campaign budget.
 
-Frozen source copies, with identical installed artifacts, are in
-`/tmp/iteration-stats-sources-20261015/{base,patch}`. `snapshot.json` in that
+The preparation used revisions `3d478485ba` and `b43a653a80`; their `vllm/`
+source trees are identical to `a33a88263f` and `5cdcb87fec`, respectively.
+Frozen source copies at the latter exact commits, with 275 identical installed
+artifacts verified by SHA-256, are in
+`/tmp/iteration-timing-sources-5cdcb87-20261015/{base,patch}`. `snapshot.json` in that
 directory records full revisions, source identity and artifact hashes. Recreate
 them for subsequent changes with `snapshot.py`; update the plan's revision pins.
 
@@ -103,7 +106,8 @@ compilation; recurring runs should retain the compilation cache.
 Scaling the measured request rates while retaining observed startup and warmup
 costs predicts approximately **80 minutes per GPU**, with both GPUs running
 concurrently. Allow roughly 90-105 minutes including cold-cache variation and
-analysis. This is a forecast, not an observed complete campaign runtime. The
+analysis. This preparation forecast is now supplemented by the completed timing campaign:
+its 40 server blocks took 72.1 minutes; see [TIMING_RESULTS.md](TIMING_RESULTS.md). The
 plan saves the calculation inputs, including a conservative 15-second allowance
 for small-model wrapper startup before server launch.
 
@@ -146,4 +150,4 @@ confidence intervals. This single-node workload does not establish overhead
 for all production models, contexts or distributed deployments.
 
 See [README.md](README.md#repeatable-serving-campaign) for dry-run, execution and
-analysis commands. The full repeated campaign has not been started.
+analysis commands. The repeated timing campaign is documented in [TIMING_RESULTS.md](TIMING_RESULTS.md).

@@ -57,8 +57,11 @@ def main():
         action="store_true",
         help="Instrument delivery; these results are untimed checks",
     )
+    parser.add_argument("--require-gpu-timing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    if args.require_gpu_timing and not args.verify_delivery:
+        parser.error("--require-gpu-timing needs --verify-delivery")
     if any(c.startswith("A") for c in args.configs) and args.base_repo is None:
         parser.error("A configurations require --base-repo")
     if min(args.repeats, args.num_iters, args.warmup, *args.batch_sizes) < 1:
@@ -183,6 +186,8 @@ def main():
                         command.append("--no-enable-logging-iteration-details")
                     if args.verify_delivery:
                         command.append("--verify-delivery")
+                    if args.require_gpu_timing:
+                        command.append("--require-gpu-timing")
                     env = dict(
                         os.environ,
                         CUDA_VISIBLE_DEVICES=args.gpu,

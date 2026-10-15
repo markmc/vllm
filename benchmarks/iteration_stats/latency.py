@@ -18,9 +18,12 @@ def main():
     wrapper = argparse.ArgumentParser(add_help=False)
     wrapper.add_argument("--repo", type=Path, required=True)
     wrapper.add_argument("--verify-delivery", action="store_true")
+    wrapper.add_argument("--require-gpu-timing", action="store_true")
     wrapper.add_argument("--cases-file", type=Path)
     wrapper.add_argument("--target-seconds", type=float)
     options, remaining = wrapper.parse_known_args()
+    if options.require_gpu_timing and not options.verify_delivery:
+        wrapper.error("--require-gpu-timing needs --verify-delivery")
     repo = options.repo.resolve()
     sys.path.insert(0, str(repo))
 
@@ -55,9 +58,10 @@ def main():
 
         def record(self, scheduler_stats, *record_args, **record_kwargs):
             if scheduler_stats is not None:
-                details = scheduler_stats.iteration_details
-                if details is not None:
-                    records.append(dataclasses.asdict(details))
+                details = getattr(scheduler_stats, "iteration_records", ())
+                if not details and scheduler_stats.iteration_details is not None:
+                    details = [scheduler_stats.iteration_details]
+                records.extend(dataclasses.asdict(detail) for detail in details)
             return original_record(self, scheduler_stats, *record_args, **record_kwargs)
 
         StatLoggerManager.record = record
@@ -142,6 +146,7 @@ def main():
             "cudagraph_mode": str(config.compilation_config.cudagraph_mode),
             "capture_sizes": config.compilation_config.cudagraph_capture_sizes,
             "verify_delivery": options.verify_delivery,
+            "require_gpu_timing": options.require_gpu_timing,
             "delivered_records": records if options.verify_delivery else None,
             "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         }
@@ -161,6 +166,17 @@ def main():
                 raise RuntimeError(
                     "Duplicate iteration records delivered to the frontend"
                 )
+            if options.require_gpu_timing and (
+                not records
+                or any(
+                    record.get("timing_scope") != "model_step_cuda"
+                    or record.get("elapsed_ms") is None
+                    or not math.isfinite(record["elapsed_ms"])
+                    or record["elapsed_ms"] < 0
+                    for record in records
+                )
+            ):
+                raise RuntimeError("Expected completed GPU timings at the frontend")
             if enabled:
                 first = records[0]
                 prefill_tokens = (

@@ -1,7 +1,7 @@
 {
   "description": "Counts-only baseline versus counts plus nonblocking GPU timing; async TP1 BF16",
-  "baseline_revision": "3d478485ba9854cb610fde29d8047fece28e9fba",
-  "candidate_revision": "b43a653a803b0cd52731a0bcd323bff91557629f",
+  "baseline_revision": "a33a88263f41d0e99dc0e4568f9df5e2a7833ff0",
+  "candidate_revision": "5cdcb87fece64ccb069cb8c8b9a4002b3c18dec3",
   "collection": {
     "baseline": "on",
     "candidate": "on"

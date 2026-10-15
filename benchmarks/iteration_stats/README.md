@@ -1,6 +1,9 @@
 # Scheduled iteration collection benchmarks
 
 See [RESULTS.md](RESULTS.md) for the completed campaign and enablement recommendation.
+See [TIMING_RESULTS.md](TIMING_RESULTS.md) for the incremental GPU timing campaign.
+The next campaign's model validation and bounded serving protocol are recorded
+in [PREPARATION.md](PREPARATION.md).
 
 Preparation for the phase-1 benchmark plan in
 [scheduled_iteration_stats.md](../../docs/design/scheduled_iteration_stats.md).
@@ -235,4 +238,81 @@ MPLCONFIGDIR=/tmp/iteration-stats-matplotlib \
   benchmarks/iteration_stats/plot.py \
   --summary-dir /tmp/iteration-stats-campaign/summary \
   --output /tmp/iteration-stats-campaign/summary/primary.png
+```
+
+## Repeatable serving campaign
+
+`serve.py --cases-file` runs several workloads against one server. It retains
+the single-case interface used by the original campaign. Cases specify `name`,
+`input_len`, `output_len`, `concurrency`, `num_prompts` and `num_warmups`.
+Server options include dtype, sequence limit, memory utilization, scheduling
+token budget and text-only model loading. Every case saves exact commands,
+results, metrics and a client CPU trace. Each server also saves GPU telemetry
+and startup, client and total wrapper durations.
+
+`serving_campaign.py` alternates baseline/candidate order across five paired
+repetitions on each GPU. Both models run on both GPUs with disjoint CPU
+allocations. It stops both workers on failure or budget expiry and retains
+completed evidence. An incomplete campaign raises an error and does not produce
+a complete summary. Baseline and candidate source trees must remain frozen.
+
+The prepared plan compares the previous count-only implementation against the
+new implementation with GPU timing. Both enable iteration details and suppress
+verbose logging. Changing the baseline source or enablement settings changes
+the question being measured; record that explicitly for each subsequent change.
+
+```bash
+.venv/bin/python benchmarks/iteration_stats/serving_campaign.py \
+  --plan benchmarks/iteration_stats/campaign.json.example \
+  --baseline-repo /tmp/iteration-timing-sources-5cdcb87-20261015/base \
+  --candidate-repo /tmp/iteration-timing-sources-5cdcb87-20261015/patch \
+  --output-dir .cache/iteration_stats/serving-campaign-20261015 \
+  --minutes 110
+```
+
+This prints the full schedule without starting servers. Add `--execute` to run
+it outside the GPU sandbox. The 110-minute execution limit leaves time for
+analysis within the approximate two-hour campaign budget.
+
+```bash
+/tmp/iteration-stats-analysis/.venv/bin/python \
+  benchmarks/iteration_stats/analyze_serving.py \
+  .cache/iteration_stats/serving-campaign-20261015
+```
+
+Analysis uses the existing paired Student-t method on log throughput ratios.
+The inference environment does not need SciPy. Preparation trials calibrate
+request counts; the repeated campaign keeps them fixed across configurations.
+
+Audit the completed campaign and retain compact throughput, latency, GPU activity
+and client CPU evidence:
+
+```bash
+/tmp/iteration-stats-analysis/.venv/bin/python \
+  benchmarks/iteration_stats/audit_serving.py \
+  .cache/iteration_stats/serving-campaign-20261015 \
+  --output .cache/iteration_stats/serving-campaign-20261015/audit.json
+```
+
+`audit_serving.py` requires complete paired GPU journals and checks source and
+harness stability, device identity, workload settings, exact token totals,
+preemptions and telemetry coverage. It rejects a fallback that disables GPU
+timing and records other timing warnings. GPU activity and client CPU use are
+summarized over the middle 80% of each measured request window. Its timezone
+option describes the local timestamps produced by `nvidia-smi`.
+
+After the measured campaign releases both GPUs, verify that completed GPU timing
+records reach the frontend. This separate functional check uses the small model
+and the offline helper's FP16 defaults. Its instrumented latencies are excluded
+from performance analysis:
+
+```bash
+.venv/bin/python benchmarks/iteration_stats/run.py \
+  --repo /tmp/iteration-timing-sources-5cdcb87-20261015/patch \
+  --output-dir .cache/iteration_stats/timing-delivery-20261015 \
+  --gpu 0 --cpu-list 0,2,4,6,8,10 \
+  --revision c1899de289a04d12100db370d81485cdf75e47ca \
+  --batch-sizes 32 --output-len 64 --async-modes on --configs C \
+  --repeats 1 --num-iters 1 --warmup 1 \
+  --verify-delivery --require-gpu-timing
 ```

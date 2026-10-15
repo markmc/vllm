@@ -20,7 +20,8 @@ def main():
         row["throughput_change_percent"] = point
         row["throughput_ci95_percent"] = bounds
         print(
-            f"GPU {row['gpu']} {row['case']}: throughput {point:+.3f}%, "
+            f"GPU {row['gpu']} {row['model']}/{row['case']}: "
+            f"throughput {point:+.3f}%, "
             f"95% CI {bounds}, n={row['pairs']}"
         )
     (args.directory / "confidence-intervals.json").write_text(
